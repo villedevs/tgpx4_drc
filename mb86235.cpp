@@ -1,5 +1,5 @@
 // license:BSD-3-Clause
-// copyright-holders:Angelo Salese, ElSemi
+// copyright-holders:Angelo Salese, ElSemi, Ville Linde
 /*****************************************************************************
  *
  * MB86235 "TGPx4" (c) Fujitsu
@@ -33,25 +33,6 @@ const device_type MB86235 = &device_creator<mb86235_device>;
 /* Execute cycles */
 void mb86235_device::execute_run()
 {
-	/*
-	UINT32 opcode;
-
-	do
-	{
-		debugger_instruction_hook(this, m_pc);
-
-		opcode = mb86235_readop(m_pc);
-		//m_pc++;
-
-		switch( opcode )
-		{
-			default:
-				mb86235_illegal();
-				break;
-		}
-
-	} while( m_icount > 0 );
-	*/
 	run_drc();
 }
 

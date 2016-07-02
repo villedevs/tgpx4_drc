@@ -14,15 +14,6 @@
 #include "cpu/drcfe.h"
 #include "cpu/drcuml.h"
 
-#if 0
-enum
-{
-	MB86235_R0=1, MB86235_R1, MB86235_R2, MB86235_R3,
-	MB86235_R4, MB86235_R5, MB86235_R6, MB86235_R7
-};
-#endif
-
-
 class mb86235_frontend;
 
 

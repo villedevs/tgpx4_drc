@@ -3,7 +3,7 @@
 
 /******************************************************************************
 
-Front-end for MB86235 recompiler
+    Front-end for MB86235 recompiler
 
 ******************************************************************************/
 
@@ -27,6 +27,18 @@ protected:
 private:
 
 	mb86235_device *m_core;
+
+	void describe_alu(opcode_desc &desc, UINT32 aluop);
+	void describe_mul(opcode_desc &desc, UINT32 mulop);
+	void describe_xfer1(opcode_desc &desc);
+	void describe_double_xfer1(opcode_desc &desc);
+	void describe_xfer2(opcode_desc &desc);
+	void describe_double_xfer2(opcode_desc &desc);
+	void describe_xfer3(opcode_desc &desc);
+	void describe_control(opcode_desc &desc);
+	void describe_alu_input(opcode_desc &desc, int reg);
+	void describe_mul_input(opcode_desc &desc, int reg);
+	void describe_alumul_output(opcode_desc &desc, int reg);
 };
 
-#endif /* __SHARCFE_H__ */
+#endif /* __MB86235FE_H__ */
