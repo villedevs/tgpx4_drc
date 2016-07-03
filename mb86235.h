@@ -17,6 +17,13 @@
 class mb86235_frontend;
 
 
+
+
+#define OP_USERFLAG_FIFOIN			0x1
+#define OP_USERFLAG_FIFOOUT0		0x2
+#define OP_USERFLAG_FIFOOUT1		0x4
+
+
 class mb86235_device :  public cpu_device
 {
 	friend class mb86235_frontend;

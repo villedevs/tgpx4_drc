@@ -171,6 +171,108 @@ void mb86235_frontend::describe_alumul_output(opcode_desc &desc, int reg)
 	}
 }
 
+void mb86235_frontend::describe_reg_read(opcode_desc &desc, int reg)
+{
+	switch (reg)
+	{
+		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
+			// MA0-7
+			MA_USED(desc, reg & 7);
+			break;
+		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
+			// AA0-7
+			AA_USED(desc, reg & 7);
+			break;
+		case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x1e: case 0x1f:
+			// AR0-7
+			AR_USED(desc, reg & 7);
+			break;
+		case 0x20: case 0x21: case 0x22: case 0x23: case 0x24: case 0x25: case 0x26: case 0x27:
+			// MB0-7
+			MB_USED(desc, reg & 7);
+			break;
+		case 0x28: case 0x29: case 0x2a: case 0x2b: case 0x2c: case 0x2d: case 0x2e: case 0x2f:
+			// AB0-7
+			AB_USED(desc, reg & 7);
+			break;
+
+		case 0x31:		// FI
+			desc.userflags |= OP_USERFLAG_FIFOIN;
+			break;
+
+		case 0x32:		// FO0
+			break;
+		case 0x33:		// FO1
+			break;
+
+		case 0x10:		// EB
+		case 0x11:		// EBU
+		case 0x12:		// EBL
+		case 0x13:		// EO
+		case 0x15:		// ST
+		case 0x16:		// MOD
+		case 0x17:		// LRPC
+		case 0x30:		// PR
+		case 0x34:		// PDR
+		case 0x35:		// DDR
+		case 0x36:		// PRP
+		case 0x37:		// PWP
+			break;
+	}
+}
+
+void mb86235_frontend::describe_reg_write(opcode_desc &desc, int reg)
+{
+	switch (reg)
+	{
+		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
+			// MA0-7
+			MA_MODIFIED(desc, reg & 7);
+			break;
+		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
+			// AA0-7
+			AA_MODIFIED(desc, reg & 7);
+			break;
+		case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x1e: case 0x1f:
+			// AR0-7
+			AR_MODIFIED(desc, reg & 7);
+			break;
+		case 0x20: case 0x21: case 0x22: case 0x23: case 0x24: case 0x25: case 0x26: case 0x27:
+			// MB0-7
+			MB_MODIFIED(desc, reg & 7);
+			break;
+		case 0x28: case 0x29: case 0x2a: case 0x2b: case 0x2c: case 0x2d: case 0x2e: case 0x2f:
+			// AB0-7
+			AB_MODIFIED(desc, reg & 7);
+			break;
+
+		case 0x31:		// FI
+			break;
+
+		case 0x32:		// FO0
+			desc.userflags |= OP_USERFLAG_FIFOOUT0;
+			break;
+		case 0x33:		// FO1
+			desc.userflags |= OP_USERFLAG_FIFOOUT1;
+			break;
+
+		case 0x10:		// EB
+		case 0x11:		// EBU
+		case 0x12:		// EBL
+		case 0x13:		// EO
+		case 0x15:		// ST
+		case 0x16:		// MOD
+		case 0x17:		// LRPC
+		case 0x30:		// PR
+		case 0x34:		// PDR
+		case 0x35:		// DDR
+		case 0x36:		// PRP
+		case 0x37:		// PWP
+			break;
+	}
+}
+
+
 void mb86235_frontend::describe_alu(opcode_desc &desc, UINT32 aluop)
 {
 	int i1 = (aluop >> 10) & 0xf;
@@ -449,5 +551,122 @@ void mb86235_frontend::describe_xfer3(opcode_desc &desc)
 
 void mb86235_frontend::describe_control(opcode_desc &desc)
 {
+	int ef1 = (desc.opptr.q[0] >> 16) & 0x3f;
+	int ef2 = desc.opptr.q[0] & 0xffff;
+	int cop = (desc.opptr.q[0] >> 22) & 0x1f;
+	int rel12 = (desc.opptr.q[0] & 0x800) ? (0xfffff000 | (desc.opptr.q[0] & 0xfff)) : (desc.opptr.q[0] & 0xfff);
 
+	switch (cop)
+	{
+		case 0x00:		// NOP
+			break;
+		case 0x01:		// REP
+			if (ef1 != 0)	// ARx
+				AR_USED(desc, (ef2 >> 12) & 7);
+			break;
+		case 0x02:		// SETL
+			if (ef1 != 0)	// ARx
+				AR_USED(desc, (ef2 >> 12) & 7);
+			break;
+		case 0x03:		// CLRFI/CLRFO/CLRF
+			break;
+		case 0x04:		// PUSH
+			describe_reg_read(desc, (ef2 >> 6) & 0x3f);
+			break;
+		case 0x05:		// POP
+			describe_reg_write(desc, (ef2 >> 6) & 0x3f);
+			break;
+		case 0x08:		// SETM #imm16
+			break;
+		case 0x09:		// SETM #imm3, CBSA
+			break;
+		case 0x0a:		// SETM #imm3, CBSB
+			break;
+		case 0x0b:		// SETM #imm1, RF
+			break;
+		case 0x0c:		// SETM #imm1, RDY
+			break;
+		case 0x0d:		// SETM #imm1, WAIT
+			break;
+		case 0x13:		// DBLP rel12
+			desc.flags |= OPFLAG_IS_CONDITIONAL_BRANCH;
+			desc.targetpc = desc.pc + rel12;
+			desc.delayslots = 1;
+			break;
+		case 0x14:		// DBBC ARx:y, rel12
+			desc.flags |= OPFLAG_IS_CONDITIONAL_BRANCH;
+			desc.targetpc = desc.pc + rel12;
+			desc.delayslots = 1;
+			AR_USED(desc, ((desc.opptr.q[0] >> 13) & 7));
+			break;
+		case 0x15:		// DBBS ARx:y, rel12
+			desc.flags |= OPFLAG_IS_CONDITIONAL_BRANCH;
+			desc.targetpc = desc.pc + rel12;
+			desc.delayslots = 1;
+			AR_USED(desc, ((desc.opptr.q[0] >> 13) & 7));
+			break;
+		case 0x1b:		// DRET
+			desc.flags |= OPFLAG_IS_UNCONDITIONAL_BRANCH | OPFLAG_END_SEQUENCE;
+			desc.targetpc = BRANCH_TARGET_DYNAMIC;
+			desc.delayslots = 1;
+			break;
+
+		case 0x10:      // DBcc
+		case 0x11:      // DBNcc
+		case 0x18:      // DCcc
+		case 0x19:      // DCNcc
+		{
+			switch ((desc.opptr.q[0] >> 12) & 0xf)
+			{
+				case 0x0: desc.targetpc = ef2 & 0xfff; break;
+				case 0x1: desc.targetpc = desc.pc + rel12; break;
+				case 0x2: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x3: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x4: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x5: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x6: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x7: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x8: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0x9: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xa: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xb: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xc: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xd: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xe: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xf: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+			}
+
+			desc.flags |= OPFLAG_IS_CONDITIONAL_BRANCH;
+			desc.delayslots = 1;
+			break;
+		}
+
+		case 0x1a:      // DCALL
+		case 0x12:      // DJMP
+		{
+			switch ((desc.opptr.q[0] >> 12) & 0xf)
+			{
+				case 0x0: desc.targetpc = ef2 & 0xfff; break;
+				case 0x1: desc.targetpc = desc.pc + rel12; break;
+				case 0x2: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x3: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x4: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x5: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x6: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x7: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0x8: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0x9: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xa: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xb: desc.targetpc = BRANCH_TARGET_DYNAMIC; break;
+				case 0xc: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xd: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xe: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+				case 0xf: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
+			}
+
+			desc.flags |= OPFLAG_IS_UNCONDITIONAL_BRANCH;
+			desc.delayslots = 1;
+			break;
+		}
+	}
 }
