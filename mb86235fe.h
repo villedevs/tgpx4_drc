@@ -41,6 +41,7 @@ private:
 	void describe_alumul_output(opcode_desc &desc, int reg);
 	void describe_reg_read(opcode_desc &desc, int reg);
 	void describe_reg_write(opcode_desc &desc, int reg);
+	void describe_ea(opcode_desc &desc, int md, int arx, int ary, int disp);
 };
 
 #endif /* __MB86235FE_H__ */

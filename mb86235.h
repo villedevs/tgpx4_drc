@@ -33,6 +33,16 @@ public:
 	mb86235_device(const machine_config &mconfig, const char *_tag, device_t *_owner, UINT32 _clock);
 
 	void unimplemented_op();
+	void unimplemented_alu();
+	void unimplemented_mul();
+	void unimplemented_control();
+	void unimplemented_xfer1();
+	void unimplemented_double_xfer1();
+	void unimplemented_xfer2();
+	void unimplemented_double_xfer2();
+	void unimplemented_xfer3();
+	void pcs_overflow();
+	void pcs_underflow();
 
 	enum
 	{
@@ -118,6 +128,14 @@ private:
 		UINT32 arg2;
 		UINT32 arg3;
 		UINT64 arg64;
+
+		UINT32 pcs[4];
+		int pcs_ptr;
+
+		UINT32 jmpdest;
+
+		UINT32 pdr;
+		UINT32 ddr;
 	};
 
 	mb86235_internal_state  *m_core;
@@ -157,6 +175,17 @@ private:
 	void generate_sequence_instruction(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_update_cycles(drcuml_block *block, compiler_state *compiler, uml::parameter param, int allow_exception);
 	int generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_alu(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int aluop);
+	void generate_mul(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int mulop);
+	void generate_control(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_double_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_double_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_xfer3(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
+	void generate_branch(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, bool call);
+	void generate_ea(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int md, int arx, int ary, int disp);
+	void generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, bool isimm, UINT32 immdata);
 };
 
 

@@ -61,44 +61,47 @@ mb86235_frontend::mb86235_frontend(mb86235_device *core, UINT32 window_start, UI
 
 bool mb86235_frontend::describe(opcode_desc &desc, const opcode_desc *prev)
 {
-	UINT64 opcode = desc.opptr.q[0] = m_core->m_direct->read_qword(desc.pc, 0);
+	UINT64 opcode = desc.opptr.q[0] = m_core->m_direct->read_qword(desc.pc * 8, 0);
+
+	desc.length = 1;
+	desc.cycles = 1;
 
 	switch ((opcode >> 61) & 7)
 	{
 		case 0:     // ALU / MUL / double transfer (type 1)
-			describe_alu(desc, (opcode >> 42) & 0x3fff);
+			describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			describe_mul(desc, (opcode >> 27) & 0x7fff);
 			describe_double_xfer1(desc);
 			break;
 		case 1:     // ALU / MUL / transfer (type 1)
-			describe_alu(desc, (opcode >> 42) & 0x3fff);
+			describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			describe_mul(desc, (opcode >> 27) & 0x7fff);
 			describe_xfer1(desc);
 			break;
 		case 2:     // ALU / MUL / control
-			describe_alu(desc, (opcode >> 42) & 0x3fff);
+			describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			describe_mul(desc, (opcode >> 27) & 0x7fff);
 			describe_control(desc);
 			break;
 		case 4:     // ALU or MUL / double transfer (type 2)
 			if (opcode & ((UINT64)(1) << 41))
-				describe_alu(desc, (opcode >> 42) & 0x3fff);
+				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
-				describe_mul(desc, (opcode >> 42) & 0x3fff);
+				describe_mul(desc, (opcode >> 42) & 0x7fff);
 			describe_double_xfer2(desc);
 			break;
 		case 5:     // ALU or MUL / transfer (type 2)
 			if (opcode & ((UINT64)(1) << 41))
-				describe_alu(desc, (opcode >> 42) & 0x3fff);
+				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
-				describe_mul(desc, (opcode >> 42) & 0x3fff);
+				describe_mul(desc, (opcode >> 42) & 0x7fff);
 			describe_xfer2(desc);
 			break;
 		case 6:     // ALU or MUL / control
 			if (opcode & ((UINT64)(1) << 41))
-				describe_alu(desc, (opcode >> 42) & 0x3fff);
+				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
-				describe_mul(desc, (opcode >> 42) & 0x3fff);
+				describe_mul(desc, (opcode >> 42) & 0x7fff);
 			describe_control(desc);
 			break;
 		case 7:     // transfer (type 3)
@@ -106,10 +109,10 @@ bool mb86235_frontend::describe(opcode_desc &desc, const opcode_desc *prev)
 			break;
 
 		default:
-			break;
+			return false;
 	}
 
-	return false;
+	return true;
 }
 
 void mb86235_frontend::describe_alu_input(opcode_desc &desc, int reg)
@@ -524,29 +527,163 @@ void mb86235_frontend::describe_mul(opcode_desc &desc, UINT32 mulop)
 	}
 }
 
+void mb86235_frontend::describe_ea(opcode_desc &desc, int md, int arx, int ary, int disp)
+{
+	switch (md)
+	{
+		case 0x0:		// @ARx
+			AR_USED(desc, arx);
+			break;
+		case 0x1:		// @ARx++
+			AR_USED(desc, arx); AR_MODIFIED(desc, arx);
+			break;
+		case 0x2:		// @ARx--
+			AR_USED(desc, arx); AR_MODIFIED(desc, arx);
+			break;
+		case 0x3:		// @ARx++disp
+			AR_USED(desc, arx); AR_MODIFIED(desc, arx);
+			break;
+		case 0x4:		// @ARx+ARy
+			AR_USED(desc, arx); AR_USED(desc, ary);
+			break;
+		case 0x5:		// @ARx+ARy++
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+		case 0x6:		// @ARx+ARy--
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+		case 0x7:		// @ARx+ARy++disp
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+		case 0x8:		// @ARx+ARyU
+			AR_USED(desc, arx); AR_USED(desc, ary);
+			break;
+		case 0x9:		// @ARx+ARyL
+			AR_USED(desc, arx); AR_USED(desc, ary);
+			break;
+		case 0xa:		// @ARx+disp
+			AR_USED(desc, arx);
+			break;
+		case 0xb:		// @ARx+ARy+disp
+			AR_USED(desc, arx); AR_USED(desc, ary);
+			break;
+		case 0xc:		// @disp
+			break;
+		case 0xd:		// @ARx+[ARy++]
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+		case 0xe:		// @ARx+[ARy--]
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+		case 0xf:		// @ARx+[ARy++disp]
+			AR_USED(desc, arx); AR_USED(desc, ary); AR_MODIFIED(desc, ary);
+			break;
+	}
+}
+
 void mb86235_frontend::describe_xfer1(opcode_desc &desc)
 {
-
+	UINT64 opcode = desc.opptr.q[0];
+	fatalerror("mb86235_frontend: describe_xfer1 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
 }
 
 void mb86235_frontend::describe_double_xfer1(opcode_desc &desc)
 {
-
+	UINT64 opcode = desc.opptr.q[0];
+	fatalerror("mb86235_frontend: describe_double_xfer1 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
 }
 
 void mb86235_frontend::describe_xfer2(opcode_desc &desc)
 {
+	UINT64 opcode = desc.opptr.q[0];
+
+	int op = (opcode >> 39) & 3;
+	int trm = (opcode >> 38) & 1;
+	int dir = (opcode >> 37) & 1;
+	int sr = (opcode >> 31) & 0x7f;
+	int dr = (opcode >> 24) & 0x7f;
+	int ary = (opcode >> 4) & 7;
+	int md = opcode & 0xf;
+	int disp14 = (opcode >> 7) & 0x3fff;
+
+	if (op == 0)	// MOV2
+	{
+		if (trm == 0)
+		{
+			if ((sr & 0x40) == 0)
+			{
+				describe_reg_read(desc, sr & 0x3f);
+			}
+			else if (sr == 0x58)
+			{
+				// MOV2 #imm24, DR
+			}
+			else
+			{
+				describe_ea(desc, md, sr & 7, ary, disp14);
+				desc.flags |= OPFLAG_READS_MEMORY;
+			}
+
+			if ((dr & 0x40) == 0)
+			{
+				describe_reg_write(desc, dr & 0x3f);
+			}
+			else
+			{
+				describe_ea(desc, md, dr & 7, ary, disp14);
+				desc.flags |= OPFLAG_WRITES_MEMORY;
+			}
+		}
+		else
+		{
+			// external transfer
+			if (dir == 0)
+			{
+				describe_reg_read(desc, dr & 0x3f);
+				desc.flags |= OPFLAG_WRITES_MEMORY;
+			}
+			else
+			{
+				describe_reg_write(desc, dr & 0x3f);
+				desc.flags |= OPFLAG_READS_MEMORY;
+			}
+		}
+	}
+	else if (op == 2)	// MOV4
+	{
+		fatalerror("mb86235_frontend: describe_double_xfer2 MOV4 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+	}
 
 }
 
 void mb86235_frontend::describe_double_xfer2(opcode_desc &desc)
 {
-
+	UINT64 opcode = desc.opptr.q[0];
+	fatalerror("mb86235_frontend: describe_double_xfer2 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
 }
 
 void mb86235_frontend::describe_xfer3(opcode_desc &desc)
 {
+	UINT64 opcode = desc.opptr.q[0];
 
+	int dr = (opcode >> 19) & 0x7f;
+	int disp = (opcode >> 7) & 0xfff;
+	int ary = (opcode >> 4) & 7;
+	int md = opcode & 0xf;
+
+	switch (dr >> 4)
+	{
+		case 0:
+		case 1:		// reg
+			describe_reg_write(desc, dr & 0x3f);
+			break;
+
+		case 2:		// RAM-A
+		case 3:		// RAM-B
+			desc.flags |= OPFLAG_WRITES_MEMORY;
+			describe_ea(desc, md, dr & 7, ary, disp);
+			break;
+	}
 }
 
 void mb86235_frontend::describe_control(opcode_desc &desc)
@@ -664,7 +801,7 @@ void mb86235_frontend::describe_control(opcode_desc &desc)
 				case 0xf: desc.targetpc = BRANCH_TARGET_DYNAMIC; describe_reg_read(desc, (ef2 >> 6) & 0x3f); break;
 			}
 
-			desc.flags |= OPFLAG_IS_UNCONDITIONAL_BRANCH;
+			desc.flags |= OPFLAG_IS_UNCONDITIONAL_BRANCH | OPFLAG_END_SEQUENCE;
 			desc.delayslots = 1;
 			break;
 		}

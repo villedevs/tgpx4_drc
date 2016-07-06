@@ -91,6 +91,8 @@ void mb86235_device::device_start()
 	m_drcuml->symbol_add(&m_core->arg2, sizeof(m_core->arg2), "arg2");
 	m_drcuml->symbol_add(&m_core->arg3, sizeof(m_core->arg3), "arg3");
 
+	m_drcuml->symbol_add(&m_core->pcs_ptr, sizeof(m_core->pcs_ptr), "pcs_ptr");
+
 
 	m_drcfe = std::make_unique<mb86235_frontend>(this, COMPILE_BACKWARDS_BYTES, COMPILE_FORWARDS_BYTES, COMPILE_MAX_SEQUENCE);
 

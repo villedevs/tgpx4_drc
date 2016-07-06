@@ -29,6 +29,10 @@ using namespace uml;
 #define EXECUTE_RESET_CACHE             3
 
 
+#define AR(reg)					mem(&m_core->ar[(reg)])
+#define AA(reg)					m_regmap[(reg)]
+
+
 inline void mb86235_device::alloc_handle(drcuml_state *drcuml, code_handle **handleptr, const char *name)
 {
 	if (*handleptr == nullptr)
@@ -43,13 +47,145 @@ static void cfunc_unimplemented(void *param)
 	cpu->unimplemented_op();
 }
 
+static void cfunc_unimplemented_alu(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_alu();
+}
+
+static void cfunc_unimplemented_mul(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_mul();
+}
+
+static void cfunc_unimplemented_control(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_control();
+}
+
+static void cfunc_unimplemented_xfer1(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_xfer1();
+}
+
+static void cfunc_unimplemented_double_xfer1(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_double_xfer1();
+}
+
+static void cfunc_unimplemented_xfer2(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_xfer2();
+}
+
+static void cfunc_unimplemented_double_xfer2(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_double_xfer2();
+}
+
+/*
+static void cfunc_unimplemented_xfer3(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->unimplemented_xfer3();
+}*/
+
+static void cfunc_pcs_overflow(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->pcs_overflow();
+}
+
+/*
+static void cfunc_pcs_underflow(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->pcs_underflow();
+}*/
+
 
 
 void mb86235_device::unimplemented_op()
 {
 	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
 	fatalerror("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
 }
+
+void mb86235_device::unimplemented_alu()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented alu %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented alu %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_mul()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented mul %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented mul %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_control()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented control %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented control %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_xfer1()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_double_xfer1()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_xfer2()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_double_xfer2()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::unimplemented_xfer3()
+{
+	UINT64 op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented xfer3 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented xfer3 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+}
+
+void mb86235_device::pcs_overflow()
+{
+	printf("MB86235: PC=%08X: PCS overflow\n", m_core->pc);
+	fatalerror("MB86235: PC=%08X: PCS overflow\n", m_core->pc);
+}
+
+void mb86235_device::pcs_underflow()
+{
+	printf("MB86235: PC=%08X: PCS underflow\n", m_core->pc);
+	fatalerror("MB86235: PC=%08X: PCS underflow\n", m_core->pc);
+}
+
 
 
 
@@ -348,9 +484,294 @@ void mb86235_device::generate_update_cycles(drcuml_block *block, compiler_state 
 	compiler->cycles = 0;
 }
 
+
+void mb86235_device::generate_ea(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int md, int arx, int ary, int disp)
+{
+	// Calculates EA into register I0
+
+	switch (md)
+	{
+		case 0x1:	// @ARx++
+			UML_MOV(block, I0, AR(arx));
+			UML_ADD(block, AR(arx), AR(arx), 1);
+			break;
+		case 0xa:	// @ARx+disp12
+			UML_ADD(block, I0, AR(arx), disp);
+			break;
+
+		default:
+			fatalerror("generate_ea: md = %02X, PC = %08X", md, desc->pc);
+			break;
+	}
+}
+
+
+void mb86235_device::generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, bool isimm, UINT32 immdata)
+{
+	// Writes I0 or immediate to register
+
+	switch (reg)
+	{
+		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
+			// AA0-7
+			UML_MOV(block, AA(reg & 7), isimm ? immdata : I0);
+			break;
+
+		case 0x10:		// EB
+			UML_MOV(block, mem(&m_core->eb), isimm ? immdata : I0);
+			break;
+
+		case 0x13:		// EO
+			UML_MOV(block, mem(&m_core->eo), isimm ? immdata : I0);
+			break;
+
+		case 0x14:		// SP
+			UML_MOV(block, mem(&m_core->sp), isimm ? immdata : I0);
+			break;
+
+		case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x1e: case 0x1f:
+			// AR0-7
+			UML_MOV(block, AR(reg & 7), isimm ? immdata : I0);
+			break;
+
+		case 0x34:		// PDR
+			UML_MOV(block, mem(&m_core->pdr), isimm ? immdata : I0);
+			break;
+
+		case 0x35:		// DDR
+			UML_MOV(block, mem(&m_core->ddr), isimm ? immdata : I0);
+			break;
+
+		default:
+			fatalerror("generate_reg_write: unimplemented register %02X at %08X", reg, desc->pc);
+			break;
+	}
+}
+
+
+
 int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
 	UINT64 opcode = desc->opptr.q[0];
 
-	return FALSE;
+	switch ((opcode >> 61) & 7)
+	{
+		case 0:     // ALU / MUL / double transfer (type 1)
+			generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			generate_mul(block, compiler, desc, (opcode >> 27) & 0x7fff);
+			generate_double_xfer1(block, compiler, desc);
+			break;
+		case 1:     // ALU / MUL / transfer (type 1)
+			generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			generate_mul(block, compiler, desc, (opcode >> 27) & 0x7fff);
+			generate_xfer1(block, compiler, desc);
+			break;
+		case 2:     // ALU / MUL / control
+			generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			generate_mul(block, compiler, desc, (opcode >> 27) & 0x7fff);
+			generate_control(block, compiler, desc);
+			break;
+		case 4:     // ALU or MUL / double transfer (type 2)
+			if (opcode & ((UINT64)(1) << 41))
+				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			else
+				generate_mul(block, compiler, desc, (opcode >> 42) & 0x7fff);			
+			generate_double_xfer2(block, compiler, desc);
+			break;
+		case 5:     // ALU or MUL / transfer (type 2)
+			if (opcode & ((UINT64)(1) << 41))
+				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			else
+				generate_mul(block, compiler, desc, (opcode >> 42) & 0x7fff);
+			generate_xfer2(block, compiler, desc);
+			break;
+		case 6:     // ALU or MUL / control
+			if (opcode & ((UINT64)(1) << 41))
+				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff);
+			else
+				generate_mul(block, compiler, desc, (opcode >> 42) & 0x7fff);				
+			generate_control(block, compiler, desc);
+			break;
+		case 7:     // transfer (type 3)
+			generate_xfer3(block, compiler, desc);
+			break;
+
+		default:
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int aluop)
+{
+	int i1 = (aluop >> 10) & 0xf;
+	int i2 = (aluop >> 5) & 0x1f;
+	int io = aluop & 0x1f;
+	int op = (aluop >> 14) & 0x1f;
+
+	switch (op)	
+	{
+		case 0x07:		// NOP
+			break;
+
+		default:
+			UML_MOV(block, mem(&m_core->pc), desc->pc);
+			UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+			UML_CALLC(block, cfunc_unimplemented_alu, this);
+			break;
+	}
+}
+
+void mb86235_device::generate_mul(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int mulop)
+{
+	UML_MOV(block, mem(&m_core->pc), desc->pc);
+	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+	UML_CALLC(block, cfunc_unimplemented_mul, this);
+}
+
+
+void mb86235_device::generate_branch(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, bool call)
+{
+	// I0 = target pc for dynamic branches
+
+	compiler_state compiler_temp = *compiler;
+
+	// save branch target
+	if (desc->targetpc == BRANCH_TARGET_DYNAMIC)
+	{
+		UML_MOV(block, mem(&m_core->jmpdest), I0);                                     // mov     [jmpdest],i0
+	}
+
+	// compile delay slots
+	generate_sequence_instruction(block, &compiler_temp, desc->delay.first());
+
+	if (call)
+	{
+		// push PC
+		code_label no_overflow = compiler->labelnum++;
+		UML_CMP(block, mem(&m_core->pcs_ptr), 4);
+		UML_JMPc(block, COND_L, no_overflow);
+		UML_MOV(block, mem(&m_core->pc), desc->pc);
+		UML_CALLC(block, cfunc_pcs_overflow, this);
+
+		UML_LABEL(block, no_overflow);
+		UML_MOV(block, I0, desc->pc + 2);
+		UML_STORE(block, m_core->pcs, mem(&m_core->pcs_ptr), I0, SIZE_DWORD, SCALE_x4);
+		UML_ADD(block, mem(&m_core->pcs_ptr), mem(&m_core->pcs_ptr), 1);
+	}
+
+	// update cycles and hash jump
+	if (desc->targetpc != BRANCH_TARGET_DYNAMIC)
+	{
+		generate_update_cycles(block, &compiler_temp, desc->targetpc, TRUE);
+		if (desc->flags & OPFLAG_INTRABLOCK_BRANCH)
+			UML_JMP(block, desc->targetpc | 0x80000000);                                // jmp      targetpc | 0x80000000
+		else
+			UML_HASHJMP(block, 0, desc->targetpc, *m_nocode);                           // hashjmp  0,targetpc,nocode
+	}
+	else
+	{
+		generate_update_cycles(block, &compiler_temp, mem(&m_core->jmpdest), TRUE);
+		UML_HASHJMP(block, 0, mem(&m_core->jmpdest), *m_nocode);                        // hashjmp  0,jmpdest,nocode
+	}
+
+	// update compiler label
+	compiler->labelnum = compiler_temp.labelnum;
+
+	/* reset the mapvar to the current cycles and account for skipped slots */
+	compiler->cycles += desc->skipslots;
+	UML_MAPVAR(block, MAPVAR_CYCLES, compiler->cycles);                                 // mapvar  CYCLES,compiler->cycles
+}
+
+
+void mb86235_device::generate_control(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UINT64 op = desc->opptr.q[0];
+	int ef1 = (op >> 16) & 0x3f;
+	int ef2 = op & 0xffff;
+	int cop = (op >> 22) & 0x1f;
+	int rel12 = (op & 0x800) ? (0xfffff000 | (op & 0xfff)) : (op & 0xfff);
+
+	switch (cop)
+	{
+		case 0x00:		// NOP
+			break;
+
+		case 0x08:		// SETM #imm16
+			UML_MOV(block, mem(&m_core->mod), ef2);
+			break;
+
+		case 0x1a:		// DCALL
+		{
+			generate_branch(block, compiler, desc, true);
+			break;
+		}
+
+		default:
+			UML_MOV(block, mem(&m_core->pc), desc->pc);
+			UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+			UML_CALLC(block, cfunc_unimplemented_control, this);
+			break;
+	}
+}
+
+void mb86235_device::generate_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UML_MOV(block, mem(&m_core->pc), desc->pc);
+	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+	UML_CALLC(block, cfunc_unimplemented_xfer1, this);
+}
+
+void mb86235_device::generate_double_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UML_MOV(block, mem(&m_core->pc), desc->pc);
+	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+	UML_CALLC(block, cfunc_unimplemented_double_xfer1, this);
+}
+
+void mb86235_device::generate_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UML_MOV(block, mem(&m_core->pc), desc->pc);
+	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+	UML_CALLC(block, cfunc_unimplemented_xfer2, this);
+}
+
+void mb86235_device::generate_double_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UML_MOV(block, mem(&m_core->pc), desc->pc);
+	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
+	UML_CALLC(block, cfunc_unimplemented_double_xfer2, this);
+}
+
+void mb86235_device::generate_xfer3(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	UINT64 opcode = desc->opptr.q[0];
+
+	UINT32 imm = (UINT32)(opcode >> 27);
+	int dr = (opcode >> 19) & 0x7f;	
+	int ary = (opcode >> 4) & 7;
+	int md = opcode & 0xf;
+
+	int disp = (opcode >> 7) & 0xfff;
+	if (disp & 0x800) disp |= 0xfffff800;
+
+	switch (dr >> 5)
+	{
+		case 0:
+		case 1:		// reg
+			generate_reg_write(block, compiler, desc, dr & 0x3f, true, imm);
+			break;
+
+		case 2:		// RAM-A
+			generate_ea(block, compiler, desc, md, dr & 7, ary, disp);
+			UML_WRITE(block, I0, imm, SIZE_DWORD, SPACE_DATA);
+			break;
+
+		case 3:		// RAM-B
+			generate_ea(block, compiler, desc, md, dr & 7, ary, disp);
+			UML_WRITE(block, I0, imm, SIZE_DWORD, SPACE_IO);
+			break;
+	}
 }
