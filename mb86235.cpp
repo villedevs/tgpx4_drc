@@ -41,7 +41,8 @@ void mb86235_device::device_start()
 {
 	m_program = &space(AS_PROGRAM);
 	m_direct = &m_program->direct();
-	m_data = &space(AS_DATA);
+	m_dataa = &space(AS_DATA);
+	m_datab = &space(AS_IO);
 
 	m_core = (mb86235_internal_state *)m_cache.alloc_near(sizeof(mb86235_internal_state));
 	memset(m_core, 0, sizeof(mb86235_internal_state));
@@ -185,7 +186,8 @@ void mb86235_cpu_device::execute_set_input(int irqline, int state)
 mb86235_device::mb86235_device(const machine_config &mconfig, const char *tag, device_t *owner, UINT32 clock)
 	: cpu_device(mconfig, MB86235, "MB86235", tag, owner, clock, "mb86235", __FILE__)
 	, m_program_config("program", ENDIANNESS_LITTLE, 64, 32, -3)
-	, m_data_config("data", ENDIANNESS_LITTLE, 32, 32, -2)
+	, m_dataa_config("data_a", ENDIANNESS_LITTLE, 32, 24, -2)
+	, m_datab_config("data_b", ENDIANNESS_LITTLE, 32, 10, -2)
 	, m_cache(CACHE_SIZE + sizeof(mb86235_internal_state))
 	, m_drcuml(nullptr)
 	, m_drcfe(nullptr)

@@ -67,7 +67,7 @@ protected:
 	//virtual void execute_set_input(int inputnum, int state);
 
 	// device_memory_interface overrides
-	virtual const address_space_config *memory_space_config(address_spacenum spacenum = AS_0) const override { return (spacenum == AS_PROGRAM) ? &m_program_config : ((spacenum == AS_DATA) ? &m_data_config : nullptr); }
+	virtual const address_space_config *memory_space_config(address_spacenum spacenum = AS_0) const override { return (spacenum == AS_PROGRAM) ? &m_program_config : ((spacenum == AS_DATA) ? &m_dataa_config : (spacenum == AS_IO) ? &m_datab_config : nullptr); }
 
 	// device_state_interface overrides
 	virtual void state_string_export(const device_state_entry &entry, std::string &str) const override;
@@ -148,12 +148,18 @@ private:
 	uml::code_handle *m_entry;                      /* entry point */
 	uml::code_handle *m_nocode;                     /* nocode exception handler */
 	uml::code_handle *m_out_of_cycles;              /* out of cycles exception handler */
+	uml::code_handle *m_clear_fifo_in;
+	uml::code_handle *m_clear_fifo_out;
+	uml::code_handle *m_read_abus;
+	uml::code_handle *m_write_abus;
 
 	address_space_config m_program_config;
-	address_space_config m_data_config;
+	address_space_config m_dataa_config;
+	address_space_config m_datab_config;
 
 	address_space *m_program;
-	address_space *m_data;
+	address_space *m_dataa;
+	address_space *m_datab;
 
 	/* internal compiler state */
 	struct compiler_state
@@ -172,6 +178,8 @@ private:
 	void static_generate_entry_point();
 	void static_generate_nocode_handler();
 	void static_generate_out_of_cycles();
+	void static_generate_fifo();
+	void static_generate_memory_accessors();
 	void generate_sequence_instruction(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_update_cycles(drcuml_block *block, compiler_state *compiler, uml::parameter param, int allow_exception);
 	int generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
@@ -183,9 +191,10 @@ private:
 	void generate_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_double_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_xfer3(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
-	void generate_branch(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, bool call);
+	void generate_branch(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_ea(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int md, int arx, int ary, int disp);
-	void generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, bool isimm, UINT32 immdata);
+	void generate_reg_read(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
+	void generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter src);
 };
 
 

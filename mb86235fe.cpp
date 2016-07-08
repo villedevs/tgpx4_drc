@@ -651,7 +651,7 @@ void mb86235_frontend::describe_xfer2(opcode_desc &desc)
 	}
 	else if (op == 2)	// MOV4
 	{
-		fatalerror("mb86235_frontend: describe_double_xfer2 MOV4 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+		fatalerror("mb86235_frontend: describe_xfer2 MOV4 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
 	}
 
 }
