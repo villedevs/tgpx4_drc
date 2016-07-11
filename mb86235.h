@@ -34,13 +34,10 @@ public:
 
 	void unimplemented_op();
 	void unimplemented_alu();
-	void unimplemented_mul();
 	void unimplemented_control();
 	void unimplemented_xfer1();
 	void unimplemented_double_xfer1();
-	void unimplemented_xfer2();
 	void unimplemented_double_xfer2();
-	void unimplemented_xfer3();
 	void pcs_overflow();
 	void pcs_underflow();
 
@@ -133,9 +130,13 @@ private:
 		int pcs_ptr;
 
 		UINT32 jmpdest;
+		UINT32 alutemp;
+		UINT32 multemp;
 
 		UINT32 pdr;
 		UINT32 ddr;
+
+		float fp0;
 	};
 
 	mb86235_internal_state  *m_core;
@@ -183,8 +184,8 @@ private:
 	void generate_sequence_instruction(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_update_cycles(drcuml_block *block, compiler_state *compiler, uml::parameter param, int allow_exception);
 	int generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
-	void generate_alu(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int aluop);
-	void generate_mul(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int mulop);
+	void generate_alu(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int aluop, bool alu_temp);
+	void generate_mul(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int mulop, bool mul_temp);
 	void generate_control(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
 	void generate_double_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc);
@@ -195,6 +196,14 @@ private:
 	void generate_ea(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int md, int arx, int ary, int disp);
 	void generate_reg_read(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
 	void generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter src);
+	void generate_alu_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
+	uml::parameter get_alu1_input(int reg);
+	uml::parameter get_alu_output(int reg);
+	void generate_mul_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
+	uml::parameter get_mul1_input(int reg);
+	void generate_condition(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int cc, bool not, uml::code_label skip_label);
+	void generate_branch_target(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int type);
+	bool has_register_clash(const opcode_desc *desc, int outreg);
 };
 
 

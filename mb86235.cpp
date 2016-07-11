@@ -151,6 +151,8 @@ void mb86235_device::device_start()
 	state_add(STATE_GENPC, "GENPC", m_core->pc ).noshow();
 
 	m_icountptr = &m_core->icount;
+
+	m_core->fp0 = 0.0f;
 }
 
 void mb86235_device::device_reset()
