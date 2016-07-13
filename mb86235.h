@@ -41,6 +41,8 @@ public:
 	void pcs_overflow();
 	void pcs_underflow();
 
+	void fifoin_w(UINT64 data);
+
 	enum
 	{
 		MB86235_PC = 1,
@@ -96,6 +98,14 @@ private:
 		UINT32 md;
 	};
 
+	struct fifo
+	{
+		int rpos;
+		int wpos;
+		int num;
+		UINT64 data[8];
+	};
+
 	struct mb86235_internal_state
 	{
 		UINT32 pc;
@@ -138,7 +148,9 @@ private:
 
 		float fp0;
 
-		int fifoin_num;
+		fifo fifoin;
+		fifo fifoout0;
+		fifo fifoout1;
 	};
 
 	mb86235_internal_state  *m_core;
@@ -152,9 +164,11 @@ private:
 	uml::code_handle *m_nocode;                     /* nocode exception handler */
 	uml::code_handle *m_out_of_cycles;              /* out of cycles exception handler */
 	uml::code_handle *m_clear_fifo_in;
-	uml::code_handle *m_clear_fifo_out;
+	uml::code_handle *m_clear_fifo_out0;
+	uml::code_handle *m_clear_fifo_out1;
 	uml::code_handle *m_read_fifo_in;
-	uml::code_handle *m_write_fifo_out;
+	uml::code_handle *m_write_fifo_out0;
+	uml::code_handle *m_write_fifo_out1;
 	uml::code_handle *m_read_abus;
 	uml::code_handle *m_write_abus;
 

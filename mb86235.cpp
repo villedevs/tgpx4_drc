@@ -212,3 +212,18 @@ offs_t mb86235_device::disasm_disassemble(char *buffer, offs_t pc, const UINT8 *
 	extern CPU_DISASSEMBLE( mb86235 );
 	return CPU_DISASSEMBLE_NAME(mb86235)(this, buffer, pc, oprom, opram, options);
 }
+
+
+void mb86235_device::fifoin_w(UINT64 data)
+{
+	if (m_core->fifoin.num >= 8)
+	{
+		fatalerror("fifoin_w: pushing to full fifo");
+	}
+
+	m_core->fifoin.data[m_core->fifoin.wpos] = data;
+	
+	m_core->fifoin.wpos++;
+	m_core->fifoin.wpos &= 7;
+	m_core->fifoin.num++;
+}

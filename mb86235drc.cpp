@@ -64,6 +64,16 @@ using namespace uml;
 #define MU_CALC_REQUIRED		((desc->regreq[1] & 0x1000) || desc->flags & OPFLAG_IN_DELAY_SLOT)
 #define MD_CALC_REQUIRED		((desc->regreq[1] & 0x2000) || desc->flags & OPFLAG_IN_DELAY_SLOT)
 
+#define FIFOIN_RPOS				mem(&m_core->fifoin.rpos)
+#define FIFOIN_WPOS				mem(&m_core->fifoin.wpos)
+#define FIFOIN_NUM				mem(&m_core->fifoin.num)
+#define FIFOOUT0_RPOS			mem(&m_core->fifoout0.rpos)
+#define FIFOOUT0_WPOS			mem(&m_core->fifoout0.wpos)
+#define FIFOOUT0_NUM			mem(&m_core->fifoout0.num)
+#define FIFOOUT1_RPOS			mem(&m_core->fifoout1.rpos)
+#define FIFOOUT1_WPOS			mem(&m_core->fifoout1.wpos)
+#define FIFOOUT1_NUM			mem(&m_core->fifoout1.num)
+
 
 inline void mb86235_device::alloc_handle(drcuml_state *drcuml, code_handle **handleptr, const char *name)
 {
@@ -396,17 +406,33 @@ void mb86235_device::static_generate_fifo()
 
 	alloc_handle(m_drcuml.get(), &m_clear_fifo_in, "clear_fifo_in");
 	UML_HANDLE(block, *m_clear_fifo_in);
-	// TODO
+	UML_MOV(block, FIFOIN_NUM, 0);
+	UML_MOV(block, FIFOIN_RPOS, 0);
+	UML_MOV(block, FIFOIN_WPOS, 0);
 	UML_RET(block);
 
 	block->end();
 
-	// clear fifo out
+	// clear fifo out0
 	block = m_drcuml->begin_block(20);
 
-	alloc_handle(m_drcuml.get(), &m_clear_fifo_out, "clear_fifo_out");
-	UML_HANDLE(block, *m_clear_fifo_out);
-	// TODO
+	alloc_handle(m_drcuml.get(), &m_clear_fifo_out0, "clear_fifo_out0");
+	UML_HANDLE(block, *m_clear_fifo_out0);
+	UML_MOV(block, FIFOOUT0_NUM, 0);
+	UML_MOV(block, FIFOOUT0_RPOS, 0);
+	UML_MOV(block, FIFOOUT0_WPOS, 0);
+	UML_RET(block);
+
+	block->end();
+
+	// clear fifo out1
+	block = m_drcuml->begin_block(20);
+
+	alloc_handle(m_drcuml.get(), &m_clear_fifo_out1, "clear_fifo_out1");
+	UML_HANDLE(block, *m_clear_fifo_out1);
+	UML_MOV(block, FIFOOUT1_NUM, 0);
+	UML_MOV(block, FIFOOUT1_RPOS, 0);
+	UML_MOV(block, FIFOOUT1_WPOS, 0);
 	UML_RET(block);
 
 	block->end();
@@ -415,15 +441,29 @@ void mb86235_device::static_generate_fifo()
 	block = m_drcuml->begin_block(32);
 	alloc_handle(m_drcuml.get(), &m_read_fifo_in, "read_fifo_in");
 	UML_HANDLE(block, *m_read_fifo_in);
+	UML_MOV(block, I1, FIFOIN_RPOS);
+	UML_LOAD(block, I0, m_core->fifoin.data, I1, SIZE_QWORD, SCALE_x8);
+	UML_ADD(block, I1, I1, 1);
+	UML_AND(block, I1, I1, 7);
+	UML_MOV(block, FIFOIN_RPOS, I1);
+	UML_SUB(block, FIFOIN_NUM, FIFOIN_NUM, 1);
+	UML_RET(block);
+
+	block->end();
+
+	// write fifo out0
+	block = m_drcuml->begin_block(32);
+	alloc_handle(m_drcuml.get(), &m_write_fifo_out0, "write_fifo_out0");
+	UML_HANDLE(block, *m_write_fifo_out0);
 	// TODO
 	UML_RET(block);
 
 	block->end();
 
-	// write fifo out
+	// write fifo out1
 	block = m_drcuml->begin_block(32);
-	alloc_handle(m_drcuml.get(), &m_write_fifo_out, "write_fifo_out");
-	UML_HANDLE(block, *m_write_fifo_out);
+	alloc_handle(m_drcuml.get(), &m_write_fifo_out1, "write_fifo_out1");
+	UML_HANDLE(block, *m_write_fifo_out1);
 	// TODO
 	UML_RET(block);
 
@@ -758,7 +798,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 	if (fifoin_check)
 	{
 		code_label not_empty = compiler->labelnum++;
-		UML_CMP(block, mem(&m_core->fifoin_num), 0);
+		UML_CMP(block, mem(&m_core->fifoin.num), 0);
 		UML_JMPc(block, COND_G, not_empty);
 
 		UML_MOV(block, mem(&m_core->icount), 0);
@@ -1453,11 +1493,15 @@ void mb86235_device::generate_control(drcuml_block *block, compiler_state *compi
 			if (ef1 == 1)	// CLRFI
 				UML_CALLH(block, *m_clear_fifo_in);
 			else if (ef1 == 2)	// CLRFO
-				UML_CALLH(block, *m_clear_fifo_out);
+			{
+				UML_CALLH(block, *m_clear_fifo_out0);
+				UML_CALLH(block, *m_clear_fifo_out1);
+			}
 			else if (ef1 == 3)	// CLRF
 			{
 				UML_CALLH(block, *m_clear_fifo_in);
-				UML_CALLH(block, *m_clear_fifo_out);
+				UML_CALLH(block, *m_clear_fifo_out0);
+				UML_CALLH(block, *m_clear_fifo_out1);
 			}
 			break;
 
