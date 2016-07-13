@@ -137,6 +137,8 @@ private:
 		UINT32 ddr;
 
 		float fp0;
+
+		int fifoin_num;
 	};
 
 	mb86235_internal_state  *m_core;
@@ -151,6 +153,8 @@ private:
 	uml::code_handle *m_out_of_cycles;              /* out of cycles exception handler */
 	uml::code_handle *m_clear_fifo_in;
 	uml::code_handle *m_clear_fifo_out;
+	uml::code_handle *m_read_fifo_in;
+	uml::code_handle *m_write_fifo_out;
 	uml::code_handle *m_read_abus;
 	uml::code_handle *m_write_abus;
 
@@ -196,14 +200,15 @@ private:
 	void generate_ea(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int md, int arx, int ary, int disp);
 	void generate_reg_read(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
 	void generate_reg_write(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter src);
-	void generate_alu_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
+	void generate_alu_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst, bool fp);
 	uml::parameter get_alu1_input(int reg);
 	uml::parameter get_alu_output(int reg);
-	void generate_mul_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst);
+	void generate_mul_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst, bool fp);
 	uml::parameter get_mul1_input(int reg);
 	void generate_condition(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int cc, bool not, uml::code_label skip_label);
-	void generate_branch_target(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int type);
+	void generate_branch_target(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int type, int ef2);
 	bool has_register_clash(const opcode_desc *desc, int outreg);
+	bool aluop_has_result(int aluop);
 };
 
 
