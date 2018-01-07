@@ -15,6 +15,15 @@
 #include "cpu/drcuml.h"
 #include "cpu/drcumlsh.h"
 
+/*
+	TODO:
+	- check jump condition before parallel ALU/MUL (flags!)
+
+*/
+
+
+
+
 using namespace uml;
 
 
@@ -48,6 +57,13 @@ using namespace uml;
 #define FLAGS_MV				mem(&m_core->flags.mv)
 #define FLAGS_MU				mem(&m_core->flags.mu)
 #define FLAGS_MD				mem(&m_core->flags.md)
+#define FLAGS_LP				mem(&m_core->flags.lp)
+#define FLAGS_RP				mem(&m_core->flags.rp)
+
+#define PRP						mem(&m_core->prp)
+#define PWP						mem(&m_core->pwp)
+#define RPC						mem(&m_core->rpc)
+#define LPC						mem(&m_core->lpc)
 
 #define AZ_CALC_REQUIRED		((desc->regreq[1] & 0x1) || desc->flags & OPFLAG_IN_DELAY_SLOT)
 #define AN_CALC_REQUIRED		((desc->regreq[1] & 0x2) || desc->flags & OPFLAG_IN_DELAY_SLOT)
@@ -101,12 +117,6 @@ static void cfunc_unimplemented_control(void *param)
 	cpu->unimplemented_control();
 }
 
-static void cfunc_unimplemented_xfer1(void *param)
-{
-	mb86235_device *cpu = (mb86235_device *)param;
-	cpu->unimplemented_xfer1();
-}
-
 static void cfunc_unimplemented_double_xfer1(void *param)
 {
 	mb86235_device *cpu = (mb86235_device *)param;
@@ -131,48 +141,47 @@ static void cfunc_pcs_underflow(void *param)
 	cpu->pcs_underflow();
 }
 
+static void cfunc_fifoin_trace(void *param)
+{
+	mb86235_device *cpu = (mb86235_device *)param;
+	cpu->fifoin_trace();
+}
+
 
 
 void mb86235_device::unimplemented_op()
 {
-	UINT64 op = m_core->arg64;
-	printf("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
-	fatalerror("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	uint64_t op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented op %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
 }
 
 void mb86235_device::unimplemented_alu()
 {
-	UINT32 op = m_core->arg0;
+	uint32_t op = m_core->arg0;
 	printf("MB86235: PC=%08X: Unimplemented alu %02X\n", m_core->pc, op);
 	fatalerror("MB86235: PC=%08X: Unimplemented alu %02X\n", m_core->pc, op);
 }
 
 void mb86235_device::unimplemented_control()
 {
-	UINT32 cop = m_core->arg0;
+	uint32_t cop = m_core->arg0;
 	printf("MB86235: PC=%08X: Unimplemented control %02X\n", m_core->pc, cop);
 	fatalerror("MB86235: PC=%08X: Unimplemented control %02X\n", m_core->pc, cop);
 }
 
-void mb86235_device::unimplemented_xfer1()
-{
-	UINT64 op = m_core->arg64;
-	printf("MB86235: PC=%08X: Unimplemented xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
-	fatalerror("MB86235: PC=%08X: Unimplemented xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
-}
-
 void mb86235_device::unimplemented_double_xfer1()
 {
-	UINT64 op = m_core->arg64;
-	printf("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
-	fatalerror("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	uint64_t op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented double xfer1 %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
 }
 
 void mb86235_device::unimplemented_double_xfer2()
 {
-	UINT64 op = m_core->arg64;
-	printf("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
-	fatalerror("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (UINT32)(op >> 32), (UINT32)(op));
+	uint64_t op = m_core->arg64;
+	printf("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
+	fatalerror("MB86235: PC=%08X: Unimplemented double xfer2 %04X%08X\n", m_core->pc, (uint32_t)(op >> 32), (uint32_t)(op));
 }
 
 void mb86235_device::pcs_overflow()
@@ -187,6 +196,10 @@ void mb86235_device::pcs_underflow()
 	fatalerror("MB86235: PC=%08X: PCS underflow\n", m_core->pc);
 }
 
+void mb86235_device::fifoin_trace()
+{
+	printf("FIFOIN trace rpos %04X\n", m_core->fifoin.rpos);
+}
 
 
 
@@ -276,7 +289,7 @@ void mb86235_device::compile_block(offs_t pc)
 			for (seqhead = desclist; seqhead != nullptr; seqhead = seqlast->next())
 			{
 				const opcode_desc *curdesc;
-				UINT32 nextpc;
+				uint32_t nextpc;
 
 				/* determine the last instruction in this sequence */
 				for (seqlast = seqhead; seqlast != nullptr; seqlast = seqlast->next())
@@ -320,7 +333,7 @@ void mb86235_device::compile_block(offs_t pc)
 					nextpc = seqlast->pc + (seqlast->skipslots + 1);
 
 				/* count off cycles and go there */
-				generate_update_cycles(block, &compiler, nextpc, TRUE);                     // <subtract cycles>
+				generate_update_cycles(block, &compiler, nextpc, true);                     // <subtract cycles>
 
 				if (seqlast->next() == nullptr || seqlast->next()->pc != nextpc)
 					UML_HASHJMP(block, 0, nextpc, *m_nocode);                               // hashjmp <mode>,nextpc,nocode
@@ -340,7 +353,7 @@ void mb86235_device::compile_block(offs_t pc)
 
 void mb86235_device::static_generate_entry_point()
 {
-	code_label skip = 1;
+	//code_label skip = 1;
 	drcuml_block *block;
 
 	/* begin generating */
@@ -376,7 +389,7 @@ void mb86235_device::static_generate_nocode_handler()
 	save_fast_iregs(block);                                                                 // <save fastregs>
 	UML_EXIT(block, EXECUTE_MISSING_CODE);                                                  // exit    EXECUTE_MISSING_CODE
 
-	block->end();
+	block->end(); 
 }
 
 void mb86235_device::static_generate_out_of_cycles()
@@ -438,13 +451,18 @@ void mb86235_device::static_generate_fifo()
 	block->end();
 
 	// read fifo in
+	// I0 = return value
 	block = m_drcuml->begin_block(32);
 	alloc_handle(m_drcuml.get(), &m_read_fifo_in, "read_fifo_in");
 	UML_HANDLE(block, *m_read_fifo_in);
+
+	UML_MOV(block, mem(&m_core->arg0), FIFOIN_RPOS);
+	UML_CALLC(block, cfunc_fifoin_trace, this);
+
 	UML_MOV(block, I1, FIFOIN_RPOS);
 	UML_LOAD(block, I0, m_core->fifoin.data, I1, SIZE_QWORD, SCALE_x8);
 	UML_ADD(block, I1, I1, 1);
-	UML_AND(block, I1, I1, 7);
+	UML_AND(block, I1, I1, FIFOIN_SIZE-1);
 	UML_MOV(block, FIFOIN_RPOS, I1);
 	UML_SUB(block, FIFOIN_NUM, FIFOIN_NUM, 1);
 	UML_RET(block);
@@ -452,10 +470,16 @@ void mb86235_device::static_generate_fifo()
 	block->end();
 
 	// write fifo out0
+	// I0 = input value
 	block = m_drcuml->begin_block(32);
 	alloc_handle(m_drcuml.get(), &m_write_fifo_out0, "write_fifo_out0");
 	UML_HANDLE(block, *m_write_fifo_out0);
-	// TODO
+	UML_MOV(block, I1, FIFOOUT0_WPOS);
+	UML_STORE(block, m_core->fifoout0.data, I1, I0, SIZE_QWORD, SCALE_x8);
+	UML_ADD(block, I1, I1, 1);
+	UML_AND(block, I1, I1, FIFOOUT0_SIZE - 1);
+	UML_MOV(block, FIFOOUT0_WPOS, I1);
+	UML_ADD(block, FIFOOUT0_NUM, FIFOOUT0_NUM, 1);
 	UML_RET(block);
 
 	block->end();
@@ -469,63 +493,6 @@ void mb86235_device::static_generate_fifo()
 
 	block->end();
 }
-
-void mb86235_device::static_generate_memory_accessors()
-{
-	drcuml_block *block;
-	code_label label = 1;
-
-	// A-Bus read handler
-	// I0 = address
-	// I1 = return data
-	// I2 = trashed
-	block = m_drcuml->begin_block(128);
-
-	alloc_handle(m_drcuml.get(), &m_read_abus, "read_abus");
-	UML_HANDLE(block, *m_read_abus);
-	UML_CMP(block, I0, 0x400);
-	UML_JMPc(block, COND_GE, label);
-	// internal A-RAM
-	UML_SHL(block, I0, I0, 2);
-	UML_READ(block, I1, I0, SIZE_DWORD, SPACE_DATA);
-	UML_RET(block);
-	// external
-	UML_LABEL(block, label++);
-	UML_AND(block, I0, I0, 0x3fff);
-	UML_AND(block, I2, mem(&m_core->eb), ~0x3fff);
-	UML_OR(block, I0, I0, I2);
-	UML_SHL(block, I0, I0, 2);
-	UML_READ(block, I1, I0, SIZE_DWORD, SPACE_DATA);
-	UML_RET(block);
-
-	block->end();
-
-	// A-Bus write handler
-	// I0 = address
-	// I1 = data
-	// I2 = trashed
-	block = m_drcuml->begin_block(128);
-
-	alloc_handle(m_drcuml.get(), &m_write_abus, "write_abus");
-	UML_HANDLE(block, *m_write_abus);
-	UML_CMP(block, I0, 0x400);
-	UML_JMPc(block, COND_GE, label);
-	// internal A-RAM
-	UML_SHL(block, I0, I0, 2);
-	UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_DATA);
-	UML_RET(block);
-	// external
-	UML_LABEL(block, label++);
-	UML_AND(block, I0, I0, 0x3fff);
-	UML_AND(block, I2, mem(&m_core->eb), ~0x3fff);
-	UML_OR(block, I0, I0, I2);
-	UML_SHL(block, I0, I0, 2);
-	UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_DATA);
-	UML_RET(block);
-
-	block->end();
-}
-
 
 void mb86235_device::flush_cache()
 {
@@ -543,9 +510,6 @@ void mb86235_device::flush_cache()
 		static_generate_fifo();
 
 		// generate exception handlers
-
-		// generate memory accessors
-		static_generate_memory_accessors();
 	}
 	catch (drcuml_block::abort_compilation &)
 	{
@@ -603,7 +567,7 @@ void mb86235_device::generate_sequence_instruction(drcuml_block *block, compiler
 	}
 }
 
-void mb86235_device::generate_update_cycles(drcuml_block *block, compiler_state *compiler, uml::parameter param, int allow_exception)
+void mb86235_device::generate_update_cycles(drcuml_block *block, compiler_state *compiler, uml::parameter param, bool allow_exception)
 {
 	/* account for cycles */
 	if (compiler->cycles > 0)
@@ -623,12 +587,23 @@ void mb86235_device::generate_ea(drcuml_block *block, compiler_state *compiler, 
 
 	switch (md)
 	{
+		case 0x0:	// @ARx
+			UML_MOV(block, I0, AR(arx));
+			break;
 		case 0x1:	// @ARx++
 			UML_MOV(block, I0, AR(arx));
 			UML_ADD(block, AR(arx), AR(arx), 1);
 			break;
+		case 0x3:	// @ARx++disp
+			UML_MOV(block, I0, AR(arx));
+			UML_ADD(block, AR(arx), AR(arx), disp);
+			break;
 		case 0x4:	// @ARx+ARy
 			UML_ADD(block, I0, AR(arx), AR(ary));
+			break;
+		case 0x5:	// @ARx+ARy++
+			UML_ADD(block, I0, AR(arx), AR(ary));
+			UML_ADD(block, AR(ary), AR(ary), 1);
 			break;
 		case 0xa:	// @ARx+disp12
 			UML_ADD(block, I0, AR(arx), disp);
@@ -646,9 +621,33 @@ void mb86235_device::generate_reg_read(drcuml_block *block, compiler_state *comp
 {
 	switch (reg)
 	{
+		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
+			// MA0-7
+			UML_MOV(block, dst, MA(reg & 7));
+			break;
+
 		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
 			// AA0-7
 			UML_MOV(block, dst, AA(reg & 7));
+			break;
+
+		case 0x18: case 0x19: case 0x1a: case 0x1b: case 0x1c: case 0x1d: case 0x1e: case 0x1f:
+			// AR0-7
+			UML_MOV(block, dst, AR(reg & 7));
+			break;
+
+		case 0x20: case 0x21: case 0x22: case 0x23: case 0x24: case 0x25: case 0x26: case 0x27:
+			// MB0-7
+			UML_MOV(block, dst, MB(reg & 7));
+			break;
+
+		case 0x28: case 0x29: case 0x2a: case 0x2b: case 0x2c: case 0x2d: case 0x2e: case 0x2f:
+			// AB0-7
+			UML_MOV(block, dst, AB(reg & 7));
+			break;
+
+		case 0x30:	// PR
+			UML_LOAD(block, dst, m_core->pr, PRP, SIZE_DWORD, SCALE_x4);
 			break;
 
 		case 0x31:	// FI
@@ -704,12 +703,29 @@ void mb86235_device::generate_reg_write(drcuml_block *block, compiler_state *com
 			UML_MOV(block, AB(reg & 7), src);
 			break;
 
+		case 0x30:		// PR
+			UML_STORE(block, m_core->pr, PWP, src, SIZE_DWORD, SCALE_x4);
+			break;
+
+		case 0x32:		// FO0
+			UML_MOV(block, I0, src);
+			UML_CALLH(block, *m_write_fifo_out0);
+			break;
+
 		case 0x34:		// PDR
 			UML_MOV(block, mem(&m_core->pdr), src);
 			break;
 
 		case 0x35:		// DDR
 			UML_MOV(block, mem(&m_core->ddr), src);
+			break;
+
+		case 0x36:		// PRP
+			UML_MOV(block, PRP, src);
+			break;
+
+		case 0x37:		// PWP
+			UML_MOV(block, PWP, src);
 			break;
 
 		default:
@@ -759,9 +775,9 @@ bool mb86235_device::aluop_has_result(int aluop)
 
 
 
-int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+bool mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
-	UINT64 opcode = desc->opptr.q[0];
+	uint64_t opcode = desc->opptr.q[0];
 
 	bool fifoin_check = false;
 	bool fifoout0_check = false;
@@ -786,7 +802,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 	}
 
 	// enable fifoout1 check if this opcode or the delay slot writes to FIFO1
-	if (desc->userflags & OP_USERFLAG_FIFOOUT0)
+	if (desc->userflags & OP_USERFLAG_FIFOOUT1)
 		fifoout1_check = true;
 	if (desc->delayslots > 0)
 	{
@@ -798,7 +814,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 	if (fifoin_check)
 	{
 		code_label not_empty = compiler->labelnum++;
-		UML_CMP(block, mem(&m_core->fifoin.num), 0);
+		UML_CMP(block, FIFOIN_NUM, 0);
 		UML_JMPc(block, COND_G, not_empty);
 
 		UML_MOV(block, mem(&m_core->icount), 0);
@@ -810,13 +826,27 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 	// insert FIFO OUT0 check if needed
 	if (fifoout0_check)
 	{
-		fatalerror("generate_opcode: fifoout0_check");
+		code_label not_full = compiler->labelnum++;
+		UML_CMP(block, FIFOOUT0_NUM, FIFOOUT0_SIZE - 1);
+		UML_JMPc(block, COND_L, not_full);
+
+		UML_MOV(block, mem(&m_core->icount), 0);
+		UML_EXH(block, *m_out_of_cycles, desc->pc);
+
+		UML_LABEL(block, not_full);
 	}
 
 	// insert FIFO OUT1 check if needed
 	if (fifoout1_check)
 	{
-		fatalerror("generate_opcode: fifoout1_check");
+		code_label not_full = compiler->labelnum++;
+		UML_CMP(block, FIFOOUT1_NUM, FIFOOUT1_SIZE - 1);
+		UML_JMPc(block, COND_L, not_full);
+
+		UML_MOV(block, mem(&m_core->icount), 0);
+		UML_EXH(block, *m_out_of_cycles, desc->pc);
+
+		UML_LABEL(block, not_full);
 	}
 	
 
@@ -846,6 +876,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 		}
 		case 2:     // ALU / MUL / control			
 		{
+			generate_pre_control(block, compiler, desc);
 			generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff, false);
 			generate_mul(block, compiler, desc, (opcode >> 27) & 0x7fff, false);
 			generate_control(block, compiler, desc);
@@ -854,7 +885,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 		case 4:     // ALU or MUL / double transfer (type 2)
 		{
 			bool comp_temp;
-			if (opcode & ((UINT64)(1) << 41))
+			if (opcode & ((uint64_t)(1) << 41))
 			{
 				comp_temp = has_register_clash(desc, (opcode >> 42) & 0x1f) && aluop_has_result((opcode >> 56) & 0x1f);
 				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff, comp_temp);
@@ -867,7 +898,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 			generate_double_xfer2(block, compiler, desc);
 			if (comp_temp)
 			{
-				if (opcode & ((UINT64)(1) << 41))
+				if (opcode & ((uint64_t)(1) << 41))
 					UML_MOV(block, get_alu_output((opcode >> 42) & 0x1f), mem(&m_core->alutemp));
 				else
 					UML_MOV(block, get_alu_output((opcode >> 42) & 0x1f), mem(&m_core->multemp));
@@ -877,7 +908,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 		case 5:     // ALU or MUL / transfer (type 2)
 		{
 			bool comp_temp;
-			if (opcode & ((UINT64)(1) << 41))
+			if (opcode & ((uint64_t)(1) << 41))
 			{
 				comp_temp = has_register_clash(desc, (opcode >> 42) & 0x1f) && aluop_has_result((opcode >> 56) & 0x1f);
 				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff, comp_temp);
@@ -890,7 +921,7 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 			generate_xfer2(block, compiler, desc);
 			if (comp_temp)
 			{
-				if (opcode & ((UINT64)(1) << 41))
+				if (opcode & ((uint64_t)(1) << 41))
 					UML_MOV(block, get_alu_output((opcode >> 42) & 0x1f), mem(&m_core->alutemp));
 				else
 					UML_MOV(block, get_alu_output((opcode >> 42) & 0x1f), mem(&m_core->multemp));
@@ -899,7 +930,8 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 		}
 		case 6:     // ALU or MUL / control
 		{
-			if (opcode & ((UINT64)(1) << 41))
+			generate_pre_control(block, compiler, desc);
+			if (opcode & ((uint64_t)(1) << 41))
 				generate_alu(block, compiler, desc, (opcode >> 42) & 0x7ffff, false);
 			else
 				generate_mul(block, compiler, desc, (opcode >> 42) & 0x7fff, false);
@@ -913,47 +945,95 @@ int mb86235_device::generate_opcode(drcuml_block *block, compiler_state *compile
 		}
 
 		default:
-			return FALSE;
+			return false;
 	}
 
-	return TRUE;
+	// update PR and PW if needed
+	if ((desc->userflags & OP_USERFLAG_PR_MASK) != 0)
+	{
+		switch ((desc->userflags & OP_USERFLAG_PR_MASK) >> 8)
+		{
+			case 1:		// PR++
+				UML_ADD(block, PRP, PRP, 1);
+				UML_CMP(block, PRP, 24);
+				UML_MOVc(block, COND_GE, PRP, 0);
+				break;
+			case 2:		// PR--
+				UML_SUB(block, PRP, PRP, 1);
+				UML_CMP(block, PRP, 0);
+				UML_MOVc(block, COND_L, PRP, 23);
+				break;
+			case 3:		// PR#0
+				UML_MOV(block, PRP, 0);
+				break;
+		}
+	}
+
+	if ((desc->userflags & OP_USERFLAG_PW_MASK) != 0)
+	{
+		switch ((desc->userflags & OP_USERFLAG_PW_MASK) >> 10)
+		{
+			case 1:		// PW++
+				UML_ADD(block, PWP, PWP, 1);
+				UML_CMP(block, PWP, 24);
+				UML_MOVc(block, COND_GE, PWP, 0);
+				break;
+			case 2:		// PW--
+				UML_SUB(block, PWP, PWP, 1);
+				UML_CMP(block, PWP, 0);
+				UML_MOVc(block, COND_L, PWP, 23);
+				break;
+			case 3:		// PW#0
+				UML_MOV(block, PWP, 0);
+				break;
+		}
+	}
+
+	// handle repeat
+	if (desc->userflags & OP_USERFLAG_REPEATED_OP)
+	{
+		code_label no_repeat = compiler->labelnum++;
+		UML_SUB(block, RPC, RPC, 1);
+		UML_CMP(block, RPC, 0);
+		UML_JMPc(block, COND_LE, no_repeat);
+
+		generate_update_cycles(block, compiler, desc->pc, true);
+		if (desc->flags & OPFLAG_INTRABLOCK_BRANCH)
+			UML_JMP(block, desc->pc | 0x80000000);
+		else
+			UML_HASHJMP(block, 0, desc->pc, *m_nocode);
+
+		UML_LABEL(block, no_repeat);
+	}
+
+	return true;
 }
 
 
 
-void mb86235_device::generate_alu_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst, bool fp)
+void mb86235_device::generate_alumul_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst, bool fp, bool mul)
 {
 	switch (reg)
 	{
 		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
-			UML_MOV(block, dst, AA(reg & 7));
+			if (mul)
+				UML_MOV(block, dst, MA(reg & 7));
+			else
+				UML_MOV(block, dst, AA(reg & 7));
 			break;
 		
 		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
-			UML_MOV(block, dst, AB(reg & 7));
+			if (mul)
+				UML_MOV(block, dst, MB(reg & 7));
+			else
+				UML_MOV(block, dst, AB(reg & 7));
 			break;
 
 		case 0x10:	// PR
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_ADD(block, mem(&m_core->pwp), mem(&m_core->pwp), 1);
-			UML_CMP(block, mem(&m_core->pwp), 24);
-			UML_MOVc(block, COND_GE, mem(&m_core->pwp), 0);
-			break;
 		case 0x11:	// PR++
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_ADD(block, mem(&m_core->prp), mem(&m_core->prp), 1);
-			UML_CMP(block, mem(&m_core->prp), 24);
-			UML_MOVc(block, COND_GE, mem(&m_core->prp), 0);
-			break;
 		case 0x12:	// PR--
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_SUB(block, mem(&m_core->prp), mem(&m_core->prp), 1);
-			UML_CMP(block, mem(&m_core->prp), 0);
-			UML_MOVc(block, COND_L, mem(&m_core->prp), 23);
-			break;
 		case 0x13:	// PR#0
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_MOV(block, mem(&m_core->prp), 0);
+			UML_LOAD(block, dst, m_core->pr, PRP, SIZE_DWORD, SCALE_x4);
 			break;
 
 		case 0x18:	// 0 / -1.0E+0
@@ -1018,84 +1098,6 @@ uml::parameter mb86235_device::get_alu_output(int reg)
 	return uml::parameter(0);
 }
 
-void mb86235_device::generate_mul_input(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int reg, uml::parameter dst, bool fp)
-{
-	switch (reg)
-	{
-		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
-			UML_MOV(block, dst, MA(reg & 7));
-			break;
-
-		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
-			UML_MOV(block, dst, MB(reg & 7));
-			break;
-
-		case 0x10:	// PR
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_ADD(block, mem(&m_core->pwp), mem(&m_core->pwp), 1);
-			UML_CMP(block, mem(&m_core->pwp), 24);
-			UML_MOVc(block, COND_GE, mem(&m_core->pwp), 0);
-			break;
-		case 0x11:	// PR++
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_ADD(block, mem(&m_core->prp), mem(&m_core->prp), 1);
-			UML_CMP(block, mem(&m_core->prp), 24);
-			UML_MOVc(block, COND_GE, mem(&m_core->prp), 0);
-			break;
-		case 0x12:	// PR--
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_SUB(block, mem(&m_core->prp), mem(&m_core->prp), 1);
-			UML_CMP(block, mem(&m_core->prp), 0);
-			UML_MOVc(block, COND_L, mem(&m_core->prp), 23);
-			break;
-		case 0x13:	// PR#0
-			UML_LOAD(block, dst, m_core->pr, mem(&m_core->prp), SIZE_DWORD, SCALE_x4);
-			UML_MOV(block, mem(&m_core->prp), 0);
-			break;
-
-		case 0x18:	// 0 / -1.0E+0
-			if (fp)
-				UML_MOV(block, dst, 0xbf800000);
-			else
-				UML_MOV(block, dst, 0);
-			break;
-
-		case 0x19:	// 1 / 0.0E+0
-			if (fp)
-				UML_MOV(block, dst, 0);
-			else
-				UML_MOV(block, dst, 1);
-			break;
-
-		case 0x1a:	// -1 / 0.5+0
-			if (fp)
-				UML_MOV(block, dst, 0x3f000000);
-			else
-				UML_MOV(block, dst, -1);
-			break;
-
-		case 0x1b:	// 1.0E+0
-			UML_MOV(block, dst, 0x3f800000);
-			break;
-
-		case 0x1c:	// 1.5E+0
-			UML_MOV(block, dst, 0x3fc00000);
-			break;
-
-		case 0x1d:	// 2.0E+0
-			UML_MOV(block, dst, 0x40000000);
-			break;
-
-		case 0x1e:	// 3.0E+0
-			UML_MOV(block, dst, 0x40400000);
-			break;
-
-		case 0x1f:	// 5.0E+0
-			UML_MOV(block, dst, 0x40a00000);
-			break;
-	}
-}
-
 uml::parameter mb86235_device::get_alu1_input(int reg)
 {
 	switch (reg)
@@ -1134,7 +1136,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 	switch (op)	
 	{
 		case 0x00:		// FADD
-			generate_alu_input(block, compiler, desc, i2, I0, true);
+			generate_alumul_input(block, compiler, desc, i2, I0, true, false);
 			UML_FSCOPYI(block, F0, I0);
 			UML_FSCOPYI(block, F1, get_alu1_input(i1));
 			UML_FSADD(block, F0, F0, F1);
@@ -1149,7 +1151,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x02:		// FSUB
-			generate_alu_input(block, compiler, desc, i2, I0, true);
+			generate_alumul_input(block, compiler, desc, i2, I0, true, false);
 			UML_FSCOPYI(block, F0, I0);
 			UML_FSCOPYI(block, F1, get_alu1_input(i1));
 			UML_FSSUB(block, F0, F0, F1);
@@ -1164,7 +1166,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x04:		// FCMP
-			generate_alu_input(block, compiler, desc, i2, I0, true);
+			generate_alumul_input(block, compiler, desc, i2, I0, true, false);
 			UML_FSCOPYI(block, F0, I0);
 			UML_FSCOPYI(block, F1, get_alu1_input(i1));
 			UML_FSCMP(block, F0, F1);
@@ -1183,7 +1185,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x06:		// FABC
-			generate_alu_input(block, compiler, desc, i2, I0, true);
+			generate_alumul_input(block, compiler, desc, i2, I0, true, false);
 			UML_AND(block, I0, I0, 0x7fffffff);
 			UML_AND(block, I1, get_alu1_input(i1), 0x7fffffff);
 			UML_FSCOPYI(block, F0, I0);
@@ -1198,8 +1200,31 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 		case 0x07:		// NOP
 			break;
 
+		case 0x0a:		// FRCP
+			UML_FSCOPYI(block, F0, get_alu1_input(i1));
+			UML_FSRECIP(block, F0, F0);
+			UML_ICOPYFS(block, alutemp ? mem(&m_core->alutemp) : get_alu_output(io), F0);
+			if (AN_CALC_REQUIRED || AZ_CALC_REQUIRED)
+				UML_FSCMP(block, F0, mem(&m_core->fp0));
+			if (AN_CALC_REQUIRED) UML_SETc(block, COND_C, FLAGS_AN);
+			if (AZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_AZ);
+			// TODO: AD flag
+			// TODO: AU flag
+			// TODO: ZD flag (zero divide)
+			break;
+
+		case 0x0b:		// FRSQ
+			UML_FSCOPYI(block, F0, get_alu1_input(i1));
+			UML_FSRSQRT(block, F0, F0);
+			UML_ICOPYFS(block, alutemp ? mem(&m_core->alutemp) : get_alu_output(io), F0);
+			if (AN_CALC_REQUIRED) UML_MOV(block, FLAGS_AN, 0);
+			if (AZ_CALC_REQUIRED) UML_MOV(block, FLAGS_AZ, 0);
+			// TODO: AD flag
+			// TODO: NR flag (Axx <= 0)
+			break;
+
 		case 0x0d:		// CIF
-			generate_alu_input(block, compiler, desc, i1, I1, true);
+			generate_alumul_input(block, compiler, desc, i1, I1, true, false);
 			UML_FSFRINT(block, F0, I1, SIZE_DWORD);
 			if (AZ_CALC_REQUIRED || AN_CALC_REQUIRED)
 				UML_CMP(block, I1, 0);
@@ -1236,7 +1261,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 		}
 
 		case 0x10:		// ADD
-			generate_alu_input(block, compiler, desc, i2, I1, false);
+			generate_alumul_input(block, compiler, desc, i2, I1, false, false);
 			UML_ADD(block, I0, I1, get_alu1_input(i1));
 			if (AZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_AZ);
 			if (AN_CALC_REQUIRED) UML_SETc(block, COND_S, FLAGS_AN);
@@ -1249,8 +1274,22 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			UML_MOV(block, alutemp ? mem(&m_core->alutemp) : get_alu_output(io), I0);
 			break;
 
+		case 0x12:		// SUB
+			generate_alumul_input(block, compiler, desc, i2, I1, false, false);
+			UML_SUB(block, I0, I1, get_alu1_input(i1));
+			if (AZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_AZ);
+			if (AN_CALC_REQUIRED) UML_SETc(block, COND_S, FLAGS_AN);
+			UML_CMP(block, I0, 0xff800000);
+			UML_MOVc(block, COND_L, I0, 0xff800000);
+			if (AV_CALC_REQUIRED) UML_MOVc(block, COND_L, FLAGS_AV, 1);
+			UML_CMP(block, I0, 0x007fffff);
+			UML_MOVc(block, COND_G, I0, 0x007fffff);
+			if (AV_CALC_REQUIRED) UML_MOVc(block, COND_G, FLAGS_AV, 1);
+			UML_MOV(block, alutemp ? mem(&m_core->alutemp) : get_alu_output(io), I0);
+			break;
+
 		case 0x14:		// CMP
-			generate_alu_input(block, compiler, desc, i2, I1, false);
+			generate_alumul_input(block, compiler, desc, i2, I1, false, false);
 			UML_SUB(block, I0, I1, get_alu1_input(i1));
 			if (AZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_AZ);
 			if (AN_CALC_REQUIRED) UML_SETc(block, COND_S, FLAGS_AN);
@@ -1268,7 +1307,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x18:		// AND
-			generate_alu_input(block, compiler, desc, i2, I0, false);
+			generate_alumul_input(block, compiler, desc, i2, I0, false, false);
 			UML_AND(block, alutemp ? mem(&m_core->alutemp) : get_alu_output(io), I0, get_alu1_input(i1));
 			if (AN_CALC_REQUIRED) UML_SETc(block, COND_S, FLAGS_AN);
 			if (AZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_AZ);
@@ -1277,7 +1316,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x1c:		// LSR
-			generate_alu_input(block, compiler, desc, i1, I0, false);
+			generate_alumul_input(block, compiler, desc, i1, I0, false, false);
 			UML_SHR(block, I0, I0, i2);
 			if (AZ_CALC_REQUIRED || AN_CALC_REQUIRED)
 				UML_CMP(block, I0, 0);
@@ -1289,7 +1328,7 @@ void mb86235_device::generate_alu(drcuml_block *block, compiler_state *compiler,
 			break;
 
 		case 0x1d:		// LSL
-			generate_alu_input(block, compiler, desc, i1, I0, false);
+			generate_alumul_input(block, compiler, desc, i1, I0, false, false);
 			UML_SHL(block, I0, I0, i2);
 			if (AZ_CALC_REQUIRED || AN_CALC_REQUIRED)
 				UML_CMP(block, I0, 0);
@@ -1318,7 +1357,7 @@ void mb86235_device::generate_mul(drcuml_block *block, compiler_state *compiler,
 	if (m)
 	{
 		// FMUL
-		generate_mul_input(block, compiler, desc, i2, I1, true);
+		generate_alumul_input(block, compiler, desc, i2, I1, true, true);
 		UML_FSCOPYI(block, F1, I1);
 		UML_FSCOPYI(block, F0, get_mul1_input(i1));
 		UML_FSMUL(block, F1, F0, F1);
@@ -1334,7 +1373,7 @@ void mb86235_device::generate_mul(drcuml_block *block, compiler_state *compiler,
 	else
 	{
 		// MUL
-		generate_mul_input(block, compiler, desc, i2, I1, false);
+		generate_alumul_input(block, compiler, desc, i2, I1, false, true);
 		UML_MULS(block, I0, I0, I1, get_mul1_input(i1));
 		if (MZ_CALC_REQUIRED) UML_SETc(block, COND_Z, FLAGS_MZ);
 		if (MN_CALC_REQUIRED) UML_SETc(block, COND_S, FLAGS_MN);
@@ -1367,7 +1406,7 @@ void mb86235_device::generate_branch(drcuml_block *block, compiler_state *compil
 	// update cycles and hash jump
 	if (desc->targetpc != BRANCH_TARGET_DYNAMIC)
 	{
-		generate_update_cycles(block, &compiler_temp, desc->targetpc, TRUE);
+		generate_update_cycles(block, &compiler_temp, desc->targetpc, true);
 		if (desc->flags & OPFLAG_INTRABLOCK_BRANCH)
 			UML_JMP(block, desc->targetpc | 0x80000000);                                // jmp      targetpc | 0x80000000
 		else
@@ -1375,7 +1414,7 @@ void mb86235_device::generate_branch(drcuml_block *block, compiler_state *compil
 	}
 	else
 	{
-		generate_update_cycles(block, &compiler_temp, mem(&m_core->jmpdest), TRUE);
+		generate_update_cycles(block, &compiler_temp, mem(&m_core->jmpdest), true);
 		UML_HASHJMP(block, 0, mem(&m_core->jmpdest), *m_nocode);                        // hashjmp  0,jmpdest,nocode
 	}
 
@@ -1402,6 +1441,15 @@ void mb86235_device::generate_branch_target(drcuml_block *block, compiler_state 
 			UML_MOV(block, I0, AR(reg));
 			break;
 		}
+		case 0x4:			// Axx
+		{
+			int reg = (ef2 >> 6) & 7;
+			if (ef2 & 0x400)
+				UML_MOV(block, I0, AB(reg));
+			else
+				UML_MOV(block, I0, AA(reg));
+			break;
+		}
 		default:
 			fatalerror("generate_branch_target: type %02X at %08X", type, desc->pc);
 			break;
@@ -1409,65 +1457,65 @@ void mb86235_device::generate_branch_target(drcuml_block *block, compiler_state 
 }
 
 
-void mb86235_device::generate_condition(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int cc, bool not, uml::code_label skip_label)
+void mb86235_device::generate_condition(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc, int cc, bool n, uml::code_label skip_label, bool condtemp)
 {
 	switch (cc)
 	{
 		case 0x00:		// MN
-			UML_CMP(block, FLAGS_MN, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_MN, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x01:		// MZ
-			UML_CMP(block, FLAGS_MZ, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_MZ, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x02:		// MV
-			UML_CMP(block, FLAGS_MV, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_MV, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x03:		// MU
-			UML_CMP(block, FLAGS_MU, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_MU, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x04:		// ZD
-			UML_CMP(block, FLAGS_ZD, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_ZD, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x05:		// NR
-			UML_CMP(block, FLAGS_NR, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_NR, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x06:		// IL
-			UML_CMP(block, FLAGS_IL, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_IL, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x07:		// ZC
-			UML_CMP(block, FLAGS_ZC, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_ZC, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x08:		// AN
-			UML_CMP(block, FLAGS_AN, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_AN, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x09:		// AZ
-			UML_CMP(block, FLAGS_AZ, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_AZ, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x0a:		// AV
-			UML_CMP(block, FLAGS_AV, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_AV, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x0b:		// AU
-			UML_CMP(block, FLAGS_AU, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_AU, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x0c:		// MD
-			UML_CMP(block, FLAGS_MD, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_MD, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		case 0x0d:		// AD
-			UML_CMP(block, FLAGS_AD, 0);
-			UML_JMPc(block, not ? COND_E : COND_NE, skip_label);
+			UML_CMP(block, condtemp ? mem(&m_core->condtemp) : FLAGS_AD, 0);
+			UML_JMPc(block, n ? COND_NE : COND_E, skip_label);
 			break;
 		default:
 			fatalerror("generate_condition: unimplemented cc %02X at %08X", cc, desc->pc);
@@ -1478,15 +1526,31 @@ void mb86235_device::generate_condition(drcuml_block *block, compiler_state *com
 
 void mb86235_device::generate_control(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
-	UINT64 op = desc->opptr.q[0];
+	uint64_t op = desc->opptr.q[0];
 	int ef1 = (op >> 16) & 0x3f;
 	int ef2 = op & 0xffff;
 	int cop = (op >> 22) & 0x1f;
-	int rel12 = (op & 0x800) ? (0xfffff000 | (op & 0xfff)) : (op & 0xfff);
+//	int rel12 = (op & 0x800) ? (0xfffff000 | (op & 0xfff)) : (op & 0xfff);
 
 	switch (cop)
 	{
 		case 0x00:		// NOP
+			break;
+
+		case 0x01:		// REP
+			if (ef1 != 0)
+				UML_MOV(block, mem(&m_core->rpc), AR(ef2 >> 13));		// ARx
+			else
+				UML_MOV(block, mem(&m_core->rpc), ef2);					// immediate
+			UML_MOV(block, FLAGS_RP, 1);
+			break;
+
+		case 0x02:		// SETL
+			if (ef1 != 0)
+				UML_MOV(block, mem(&m_core->lpc), AR(ef2 >> 13));		// ARx
+			else
+				UML_MOV(block, mem(&m_core->lpc), ef2);					// immediate
+			UML_MOV(block, FLAGS_LP, 1);
 			break;
 
 		case 0x03:		// 
@@ -1514,7 +1578,7 @@ void mb86235_device::generate_control(drcuml_block *block, compiler_state *compi
 			code_label skip_label = compiler->labelnum++;
 
 			generate_branch_target(block, compiler, desc, (op >> 12) & 0xf, ef2);
-			generate_condition(block, compiler, desc, ef1, false, skip_label);
+			generate_condition(block, compiler, desc, ef1, false, skip_label, true);
 			generate_branch(block, compiler, desc);
 			UML_LABEL(block, skip_label);
 			break;
@@ -1525,7 +1589,7 @@ void mb86235_device::generate_control(drcuml_block *block, compiler_state *compi
 			code_label skip_label = compiler->labelnum++;
 
 			generate_branch_target(block, compiler, desc, (op >> 12) & 0xf, ef2);
-			generate_condition(block, compiler, desc, ef1, true, skip_label);
+			generate_condition(block, compiler, desc, ef1, true, skip_label, true);
 			generate_branch(block, compiler, desc);
 			UML_LABEL(block, skip_label);
 			break;
@@ -1583,9 +1647,69 @@ void mb86235_device::generate_control(drcuml_block *block, compiler_state *compi
 
 void mb86235_device::generate_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
-	UML_MOV(block, mem(&m_core->pc), desc->pc);
-	UML_DMOV(block, mem(&m_core->arg64), desc->opptr.q[0]);
-	UML_CALLC(block, cfunc_unimplemented_xfer1, this);
+	uint64_t opcode = desc->opptr.q[0];
+
+	int dr = (opcode >> 12) & 0x7f;
+	int sr = (opcode >> 19) & 0x7f;
+	int md = opcode & 0xf;
+	int ary = (opcode >> 4) & 7;
+	int disp5 = (opcode >> 7) & 0x1f;
+	int trm = (opcode >> 26) & 1;
+//	int dir = (opcode >> 25) & 1;
+
+	if (trm == 0)
+	{
+		if (sr == 0x58)
+		{
+			// MOV1 #imm12, DR
+			generate_reg_write(block, compiler, desc, dr & 0x3f, uml::parameter(opcode & 0xfff));
+		}
+		else
+		{
+			if ((sr & 0x40) == 0)
+			{
+				generate_reg_read(block, compiler, desc, sr & 0x3f, I1);
+			}
+			else
+			{
+				generate_ea(block, compiler, desc, md, sr & 7, ary, disp5);
+				if (sr & 0x20)	// RAM-B
+				{
+					UML_SHL(block, I0, I0, 2);
+					UML_READ(block, I1, I0, SIZE_DWORD, SPACE_IO);
+				}
+				else // RAM-A
+				{
+					UML_SHL(block, I0, I0, 2);
+					UML_READ(block, I1, I0, SIZE_DWORD, SPACE_DATA);
+				}
+			}
+
+			if ((dr & 0x40) == 0)
+			{
+				generate_reg_write(block, compiler, desc, dr & 0x3f, I1);
+			}
+			else
+			{
+				generate_ea(block, compiler, desc, md, dr & 7, ary, disp5);
+				if (dr & 0x20)	// RAM-B
+				{
+					UML_SHL(block, I0, I0, 2);
+					UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_IO);
+				}
+				else // RAM-A
+				{
+					UML_SHL(block, I0, I0, 2);
+					UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_DATA);
+				}
+			}
+		}
+	}
+	else
+	{
+		// external transfer
+		fatalerror("generate_xfer1 MOV1 at %08X (%08X%08X)", desc->pc, (uint32_t)(opcode >> 32), (uint32_t)(opcode));
+	}
 }
 
 void mb86235_device::generate_double_xfer1(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
@@ -1597,7 +1721,7 @@ void mb86235_device::generate_double_xfer1(drcuml_block *block, compiler_state *
 
 void mb86235_device::generate_xfer2(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
-	UINT64 opcode = desc->opptr.q[0];
+	uint64_t opcode = desc->opptr.q[0];
 
 	int op = (opcode >> 39) & 3;
 	int trm = (opcode >> 38) & 1;
@@ -1635,7 +1759,8 @@ void mb86235_device::generate_xfer2(drcuml_block *block, compiler_state *compile
 					}
 					else // RAM-A
 					{
-						UML_CALLH(block, *m_read_abus);
+						UML_SHL(block, I0, I0, 2);
+						UML_READ(block, I1, I0, SIZE_DWORD, SPACE_DATA);
 					}					
 				}
 
@@ -1646,14 +1771,15 @@ void mb86235_device::generate_xfer2(drcuml_block *block, compiler_state *compile
 				else
 				{
 					generate_ea(block, compiler, desc, md, dr & 7, ary, disp14);
-					if (sr & 0x20)	// RAM-B
+					if (dr & 0x20)	// RAM-B
 					{
 						UML_SHL(block, I0, I0, 2);
 						UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_IO);
 					}
 					else // RAM-A
 					{
-						UML_CALLH(block, *m_write_abus);
+						UML_SHL(block, I0, I0, 2);
+						UML_WRITE(block, I0, I1, SIZE_DWORD, SPACE_DATA);
 					}
 				}
 			}
@@ -1684,7 +1810,7 @@ void mb86235_device::generate_xfer2(drcuml_block *block, compiler_state *compile
 	}
 	else if (op == 2)	// MOV4
 	{
-		fatalerror("generate_xfer2 MOV4 at %08X (%08X%08X)", desc->pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+		fatalerror("generate_xfer2 MOV4 at %08X (%08X%08X)", desc->pc, (uint32_t)(opcode >> 32), (uint32_t)(opcode));
 	}
 }
 
@@ -1697,9 +1823,9 @@ void mb86235_device::generate_double_xfer2(drcuml_block *block, compiler_state *
 
 void mb86235_device::generate_xfer3(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
 {
-	UINT64 opcode = desc->opptr.q[0];
+	uint64_t opcode = desc->opptr.q[0];
 
-	UINT32 imm = (UINT32)(opcode >> 27);
+	uint32_t imm = (uint32_t)(opcode >> 27);
 	int dr = (opcode >> 19) & 0x7f;	
 	int ary = (opcode >> 4) & 7;
 	int md = opcode & 0xf;
@@ -1716,14 +1842,65 @@ void mb86235_device::generate_xfer3(drcuml_block *block, compiler_state *compile
 
 		case 2:		// RAM-A
 			generate_ea(block, compiler, desc, md, dr & 7, ary, disp);
-			UML_MOV(block, I1, imm);
-			UML_CALLH(block, *m_write_abus);
+			UML_SHL(block, I0, I0, 2);
+			UML_WRITE(block, I0, imm, SIZE_DWORD, SPACE_DATA);
 			break;
 
 		case 3:		// RAM-B
 			generate_ea(block, compiler, desc, md, dr & 7, ary, disp);
 			UML_SHL(block, I0, I0, 2);
 			UML_WRITE(block, I0, imm, SIZE_DWORD, SPACE_IO);
+			break;
+	}
+}
+
+
+void mb86235_device::generate_pre_control(drcuml_block *block, compiler_state *compiler, const opcode_desc *desc)
+{
+	uint64_t op = desc->opptr.q[0];
+	int ef1 = (op >> 16) & 0x3f;
+	int ef2 = op & 0xffff;
+	int cop = (op >> 22) & 0x1f;
+
+	switch (cop)
+	{
+		case 0x10:		// DBcc
+		case 0x11:		// DBNcc
+		case 0x18:		// DCcc
+		case 0x19:		// DCNcc
+			switch (ef1)
+			{
+				case 0x00:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_MN); break;		// MN
+				case 0x01:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_MZ); break;		// MZ					
+				case 0x02:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_MV); break;		// MV					
+				case 0x03:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_MU); break;		// MU
+				case 0x04:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_ZD); break;		// ZD
+				case 0x05:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_NR); break;		// NR
+				case 0x06:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_IL); break;		// IL
+				case 0x07:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_ZC); break;		// ZC					
+				case 0x08:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_AN); break;		// AN					
+				case 0x09:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_AZ); break;		// AZ					
+				case 0x0a:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_AV); break;		// AV					
+				case 0x0b:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_AU); break;		// AU					
+				case 0x0c:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_MD); break;		// MD					
+				case 0x0d:	UML_MOV(block, mem(&m_core->condtemp), FLAGS_AD); break;		// AD					
+				default:
+					fatalerror("generate_pre_control: unimplemented cc %02X at %08X", ef1, desc->pc);
+					break;
+			}
+			break;
+
+		case 0x14:		// DBBC ARx:y, rel12
+			// TODO: copy ARx
+			UML_MOV(block, mem(&m_core->condtemp), AR((ef2 >> 13) & 7));
+			break;
+
+		case 0x15:		// DBBS ARx:y, rel12
+			// TODO: copy ARx
+			UML_MOV(block, mem(&m_core->condtemp), AR((ef2 >> 13) & 7));
+			break;
+
+		default:
 			break;
 	}
 }

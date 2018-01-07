@@ -18,7 +18,7 @@
 class mb86235_frontend : public drc_frontend
 {
 public:
-	mb86235_frontend(mb86235_device *core, UINT32 window_start, UINT32 window_end, UINT32 max_sequence);
+	mb86235_frontend(mb86235_device *core, uint32_t window_start, uint32_t window_end, uint32_t max_sequence);
 
 protected:
 	// required overrides
@@ -28,8 +28,8 @@ private:
 
 	mb86235_device *m_core;
 
-	void describe_alu(opcode_desc &desc, UINT32 aluop);
-	void describe_mul(opcode_desc &desc, UINT32 mulop);
+	void describe_alu(opcode_desc &desc, uint32_t aluop);
+	void describe_mul(opcode_desc &desc, uint32_t mulop);
 	void describe_xfer1(opcode_desc &desc);
 	void describe_double_xfer1(opcode_desc &desc);
 	void describe_xfer2(opcode_desc &desc);

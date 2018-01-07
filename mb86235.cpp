@@ -17,6 +17,8 @@
 #include "mb86235fe.h"
 
 
+#define ENABLE_DRC		1
+
 
 #define CACHE_SIZE                      (1 * 1024 * 1024)
 #define COMPILE_BACKWARDS_BYTES         128
@@ -29,11 +31,24 @@
 const device_type MB86235 = &device_creator<mb86235_device>;
 
 
+static ADDRESS_MAP_START(internal_abus, AS_DATA, 32, mb86235_device)
+	AM_RANGE(0x000000, 0x0003ff) AM_RAM
+ADDRESS_MAP_END
+
+static ADDRESS_MAP_START(internal_bbus, AS_IO, 32, mb86235_device)
+	AM_RANGE(0x000000, 0x0003ff) AM_RAM
+ADDRESS_MAP_END
+
+
 
 /* Execute cycles */
 void mb86235_device::execute_run()
 {
+#if ENABLE_DRC
 	run_drc();
+#else
+	m_core->icount = 0;
+#endif
 }
 
 
@@ -49,7 +64,7 @@ void mb86235_device::device_start()
 
 
 	// init UML generator
-	UINT32 umlflags = 0;
+	uint32_t umlflags = 0;
 	m_drcuml = std::make_unique<drcuml_state>(*this, m_cache, umlflags, 1, 24, 0);
 
 	// add UML symbols
@@ -91,6 +106,8 @@ void mb86235_device::device_start()
 	m_drcuml->symbol_add(&m_core->arg1, sizeof(m_core->arg1), "arg1");
 	m_drcuml->symbol_add(&m_core->arg2, sizeof(m_core->arg2), "arg2");
 	m_drcuml->symbol_add(&m_core->arg3, sizeof(m_core->arg3), "arg3");
+	m_drcuml->symbol_add(&m_core->alutemp, sizeof(m_core->alutemp), "alutemp");
+	m_drcuml->symbol_add(&m_core->multemp, sizeof(m_core->multemp), "multemp");
 
 	m_drcuml->symbol_add(&m_core->pcs_ptr, sizeof(m_core->pcs_ptr), "pcs_ptr");
 
@@ -140,15 +157,16 @@ void mb86235_device::device_start()
 	state_add(MB86235_MA5, "MA5", m_core->ma[5]).formatstr("%08X");
 	state_add(MB86235_MA6, "MA6", m_core->ma[6]).formatstr("%08X");
 	state_add(MB86235_MA7, "MA7", m_core->ma[7]).formatstr("%08X");
-	state_add(MB86235_MB0, "MB0", m_core->ma[0]).formatstr("%08X");
-	state_add(MB86235_MB1, "MB1", m_core->ma[1]).formatstr("%08X");
-	state_add(MB86235_MB2, "MB2", m_core->ma[2]).formatstr("%08X");
-	state_add(MB86235_MB3, "MB3", m_core->ma[3]).formatstr("%08X");
-	state_add(MB86235_MB4, "MB4", m_core->ma[4]).formatstr("%08X");
-	state_add(MB86235_MB5, "MB5", m_core->ma[5]).formatstr("%08X");
-	state_add(MB86235_MB6, "MB6", m_core->ma[6]).formatstr("%08X");
-	state_add(MB86235_MB7, "MB7", m_core->ma[7]).formatstr("%08X");
+	state_add(MB86235_MB0, "MB0", m_core->mb[0]).formatstr("%08X");
+	state_add(MB86235_MB1, "MB1", m_core->mb[1]).formatstr("%08X");
+	state_add(MB86235_MB2, "MB2", m_core->mb[2]).formatstr("%08X");
+	state_add(MB86235_MB3, "MB3", m_core->mb[3]).formatstr("%08X");
+	state_add(MB86235_MB4, "MB4", m_core->mb[4]).formatstr("%08X");
+	state_add(MB86235_MB5, "MB5", m_core->mb[5]).formatstr("%08X");
+	state_add(MB86235_MB6, "MB6", m_core->mb[6]).formatstr("%08X");
+	state_add(MB86235_MB7, "MB7", m_core->mb[7]).formatstr("%08X");
 	state_add(STATE_GENPC, "GENPC", m_core->pc ).noshow();
+	state_add(STATE_GENPCBASE, "CURPC", m_core->pc).noshow();
 
 	m_icountptr = &m_core->icount;
 
@@ -185,11 +203,11 @@ void mb86235_cpu_device::execute_set_input(int irqline, int state)
 }
 #endif
 
-mb86235_device::mb86235_device(const machine_config &mconfig, const char *tag, device_t *owner, UINT32 clock)
+mb86235_device::mb86235_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock)
 	: cpu_device(mconfig, MB86235, "MB86235", tag, owner, clock, "mb86235", __FILE__)
 	, m_program_config("program", ENDIANNESS_LITTLE, 64, 32, -3)
-	, m_dataa_config("data_a", ENDIANNESS_LITTLE, 32, 24, -2)
-	, m_datab_config("data_b", ENDIANNESS_LITTLE, 32, 10, -2)
+	, m_dataa_config("data_a", ENDIANNESS_LITTLE, 32, 24, -2, ADDRESS_MAP_NAME(internal_abus))
+	, m_datab_config("data_b", ENDIANNESS_LITTLE, 32, 10, -2, ADDRESS_MAP_NAME(internal_bbus))
 	, m_cache(CACHE_SIZE + sizeof(mb86235_internal_state))
 	, m_drcuml(nullptr)
 	, m_drcfe(nullptr)
@@ -207,23 +225,66 @@ void mb86235_device::state_string_export(const device_state_entry &entry, std::s
 	}
 }
 
-offs_t mb86235_device::disasm_disassemble(char *buffer, offs_t pc, const UINT8 *oprom, const UINT8 *opram, UINT32 options)
+offs_t mb86235_device::disasm_disassemble(std::ostream &stream, offs_t pc, const uint8_t *oprom, const uint8_t *opram, uint32_t options)
 {
 	extern CPU_DISASSEMBLE( mb86235 );
-	return CPU_DISASSEMBLE_NAME(mb86235)(this, buffer, pc, oprom, opram, options);
+	return CPU_DISASSEMBLE_NAME(mb86235)(this, stream, pc, oprom, opram, options);
 }
 
 
-void mb86235_device::fifoin_w(UINT64 data)
+void mb86235_device::fifoin_w(uint64_t data)
 {
-	if (m_core->fifoin.num >= 8)
+#if ENABLE_DRC
+	if (m_core->fifoin.num >= FIFOIN_SIZE)
 	{
 		fatalerror("fifoin_w: pushing to full fifo");
 	}
 
+	printf("FIFOIN push %08X%08X (wpos %04X)\n", (uint32_t)(data >> 32), (uint32_t)(data), m_core->fifoin.wpos);
+
 	m_core->fifoin.data[m_core->fifoin.wpos] = data;
 	
 	m_core->fifoin.wpos++;
-	m_core->fifoin.wpos &= 7;
+	m_core->fifoin.wpos &= FIFOIN_SIZE-1;
 	m_core->fifoin.num++;
+#endif
+}
+
+bool mb86235_device::is_fifoin_full()
+{
+#if ENABLE_DRC
+	return m_core->fifoin.num >= FIFOIN_SIZE;
+#else
+	return false;
+#endif
+}
+
+uint64_t mb86235_device::fifoout0_r()
+{
+#if ENABLE_DRC
+	if (m_core->fifoout0.num == 0)
+	{
+		fatalerror("fifoout0_r: reading from empty fifo");
+	}
+
+	printf("FIFOOUT read (rpos %04X)\n", m_core->fifoout0.rpos);
+
+	uint64_t data = m_core->fifoout0.data[m_core->fifoout0.rpos];
+
+	m_core->fifoout0.rpos++;
+	m_core->fifoout0.rpos &= FIFOOUT0_SIZE - 1;
+	m_core->fifoout0.num--;
+	return data;
+#else
+	return 0;
+#endif
+}
+
+bool mb86235_device::is_fifoout0_empty()
+{
+#if ENABLE_DRC
+	return m_core->fifoout0.num == 0;
+#else
+	return false;
+#endif
 }

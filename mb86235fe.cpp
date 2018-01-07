@@ -13,14 +13,14 @@
 
 #define AA_USED(desc,x)				do { (desc).regin[0] |= 1 << (x); } while(0)
 #define AA_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (x); } while(0)
-#define AB_USED(desc,x)				do { (desc).regin[0] |= 1 << (8+x); } while(0)
-#define AB_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (8+x); } while(0)
-#define MA_USED(desc,x)				do { (desc).regin[0] |= 1 << (16+x); } while(0)
-#define MA_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (16+x); } while(0)
-#define MB_USED(desc,x)				do { (desc).regin[0] |= 1 << (24+x); } while(0)
-#define MB_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (24+x); } while(0)
-#define AR_USED(desc,x)				do { (desc).regin[1] |= 1 << (24+x); } while(0)
-#define AR_MODIFIED(desc,x)			do { (desc).regout[1] |= 1 << (24+x); } while(0)
+#define AB_USED(desc,x)				do { (desc).regin[0] |= 1 << (8+(x)); } while(0)
+#define AB_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (8+(x)); } while(0)
+#define MA_USED(desc,x)				do { (desc).regin[0] |= 1 << (16+(x)); } while(0)
+#define MA_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (16+(x)); } while(0)
+#define MB_USED(desc,x)				do { (desc).regin[0] |= 1 << (24+(x)); } while(0)
+#define MB_MODIFIED(desc,x)			do { (desc).regout[0] |= 1 << (24+(x)); } while(0)
+#define AR_USED(desc,x)				do { (desc).regin[1] |= 1 << (24+(x)); } while(0)
+#define AR_MODIFIED(desc,x)			do { (desc).regout[1] |= 1 << (24+(x)); } while(0)
 
 #define AZ_USED(desc)				do { (desc).regin[1] |= 1 << 0; } while (0)
 #define AZ_MODIFIED(desc)			do { (desc).regout[1] |= 1 << 0; } while (0)
@@ -52,7 +52,7 @@
 #define MD_MODIFIED(desc)			do { (desc).regout[1] |= 1 << 13; } while (0)
 
 
-mb86235_frontend::mb86235_frontend(mb86235_device *core, UINT32 window_start, UINT32 window_end, UINT32 max_sequence)
+mb86235_frontend::mb86235_frontend(mb86235_device *core, uint32_t window_start, uint32_t window_end, uint32_t max_sequence)
 	: drc_frontend(*core, window_start, window_end, max_sequence),
 	m_core(core)
 {
@@ -61,10 +61,20 @@ mb86235_frontend::mb86235_frontend(mb86235_device *core, UINT32 window_start, UI
 
 bool mb86235_frontend::describe(opcode_desc &desc, const opcode_desc *prev)
 {
-	UINT64 opcode = desc.opptr.q[0] = m_core->m_direct->read_qword(desc.pc * 8, 0);
+	uint64_t opcode = desc.opptr.q[0] = m_core->m_direct->read_qword(desc.pc * 8, 0);
 
 	desc.length = 1;
 	desc.cycles = 1;
+
+	// repeatable instruction needs an entry point
+	if (prev != nullptr)
+	{
+		if (prev->userflags & OP_USERFLAG_REPEAT)
+		{
+			desc.flags |= OPFLAG_IS_BRANCH_TARGET;
+			desc.userflags |= OP_USERFLAG_REPEATED_OP;
+		}
+	}
 
 	switch ((opcode >> 61) & 7)
 	{
@@ -84,21 +94,21 @@ bool mb86235_frontend::describe(opcode_desc &desc, const opcode_desc *prev)
 			describe_control(desc);
 			break;
 		case 4:     // ALU or MUL / double transfer (type 2)
-			if (opcode & ((UINT64)(1) << 41))
+			if (opcode & ((uint64_t)(1) << 41))
 				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
 				describe_mul(desc, (opcode >> 42) & 0x7fff);
 			describe_double_xfer2(desc);
 			break;
 		case 5:     // ALU or MUL / transfer (type 2)
-			if (opcode & ((UINT64)(1) << 41))
+			if (opcode & ((uint64_t)(1) << 41))
 				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
 				describe_mul(desc, (opcode >> 42) & 0x7fff);
 			describe_xfer2(desc);
 			break;
 		case 6:     // ALU or MUL / control
-			if (opcode & ((UINT64)(1) << 41))
+			if (opcode & ((uint64_t)(1) << 41))
 				describe_alu(desc, (opcode >> 42) & 0x7ffff);
 			else
 				describe_mul(desc, (opcode >> 42) & 0x7fff);
@@ -117,15 +127,32 @@ bool mb86235_frontend::describe(opcode_desc &desc, const opcode_desc *prev)
 
 void mb86235_frontend::describe_alu_input(opcode_desc &desc, int reg)
 {
-	switch (reg >> 3)
+	switch (reg)
 	{
-		case 0:
+		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
 			AA_USED(desc, reg & 7);
 			break;
 
-		case 1:
+		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
 			AB_USED(desc, reg & 7);
 			break;
+
+		case 0x10:	// PR
+			break;
+
+		case 0x11:	// PR++
+			desc.userflags &= ~OP_USERFLAG_PR_MASK;
+			desc.userflags |= OP_USERFLAG_PR_INC;
+			break;
+		case 0x12:	// PR--
+			desc.userflags &= ~OP_USERFLAG_PR_MASK;
+			desc.userflags |= OP_USERFLAG_PR_DEC;
+			break;
+		case 0x13:	// PR#0
+			desc.userflags &= ~OP_USERFLAG_PR_MASK;
+			desc.userflags |= OP_USERFLAG_PR_ZERO;
+			break;
+
 
 		default:
 			break;
@@ -134,14 +161,36 @@ void mb86235_frontend::describe_alu_input(opcode_desc &desc, int reg)
 
 void mb86235_frontend::describe_mul_input(opcode_desc &desc, int reg)
 {
-	switch (reg >> 3)
+	switch (reg)
 	{
-		case 0:
+		case 0x00: case 0x01: case 0x02: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07:
 			MA_USED(desc, reg & 7);
 			break;
 
-		case 1:
+		case 0x08: case 0x09: case 0x0a: case 0x0b: case 0x0c: case 0x0d: case 0x0e: case 0x0f:
 			MB_USED(desc, reg & 7);
+			break;
+
+		case 0x10:	// PR
+			break;
+
+		case 0x11:	// PR++
+			if ((desc.userflags & OP_USERFLAG_PR_MASK) == 0)	// ALU PR update has higher priority
+			{
+				desc.userflags |= OP_USERFLAG_PR_INC;
+			}
+			break;
+		case 0x12:	// PR--
+			if ((desc.userflags & OP_USERFLAG_PR_MASK) == 0)	// ALU PR update has higher priority
+			{
+				desc.userflags |= OP_USERFLAG_PR_DEC;
+			}
+			break;
+		case 0x13:	// PR#0
+			if ((desc.userflags & OP_USERFLAG_PR_MASK) == 0)	// ALU PR update has higher priority
+			{
+				desc.userflags |= OP_USERFLAG_PR_ZERO;
+			}
 			break;
 
 		default:
@@ -215,12 +264,18 @@ void mb86235_frontend::describe_reg_read(opcode_desc &desc, int reg)
 		case 0x13:		// EO
 		case 0x15:		// ST
 		case 0x16:		// MOD
-		case 0x17:		// LRPC
-		case 0x30:		// PR
+		case 0x17:		// LRPC		
 		case 0x34:		// PDR
 		case 0x35:		// DDR
 		case 0x36:		// PRP
 		case 0x37:		// PWP
+			break;
+
+		case 0x30:		// PR
+			if ((desc.userflags & OP_USERFLAG_PR_MASK) == 0)		// ALU and MUL PR updates have higher priority
+			{
+				desc.userflags |= OP_USERFLAG_PR_INC;
+			}
 			break;
 	}
 }
@@ -268,18 +323,22 @@ void mb86235_frontend::describe_reg_write(opcode_desc &desc, int reg)
 		case 0x13:		// EO
 		case 0x15:		// ST
 		case 0x16:		// MOD
-		case 0x17:		// LRPC
-		case 0x30:		// PR
+		case 0x17:		// LRPC		
 		case 0x34:		// PDR
 		case 0x35:		// DDR
 		case 0x36:		// PRP
 		case 0x37:		// PWP
 			break;
+
+		case 0x30:		// PR
+			desc.userflags &= ~OP_USERFLAG_PW_MASK;
+			desc.userflags |= OP_USERFLAG_PW_INC;
+			break;
 	}
 }
 
 
-void mb86235_frontend::describe_alu(opcode_desc &desc, UINT32 aluop)
+void mb86235_frontend::describe_alu(opcode_desc &desc, uint32_t aluop)
 {
 	int i1 = (aluop >> 10) & 0xf;
 	int i2 = (aluop >> 5) & 0x1f;
@@ -501,7 +560,7 @@ void mb86235_frontend::describe_alu(opcode_desc &desc, UINT32 aluop)
 	}
 }
 
-void mb86235_frontend::describe_mul(opcode_desc &desc, UINT32 mulop)
+void mb86235_frontend::describe_mul(opcode_desc &desc, uint32_t mulop)
 {
 	int i1 = (mulop >> 10) & 0xf;
 	int i2 = (mulop >> 5) & 0x1f;
@@ -586,19 +645,68 @@ void mb86235_frontend::describe_ea(opcode_desc &desc, int md, int arx, int ary, 
 
 void mb86235_frontend::describe_xfer1(opcode_desc &desc)
 {
-	UINT64 opcode = desc.opptr.q[0];
-	fatalerror("mb86235_frontend: describe_xfer1 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+	uint64_t opcode = desc.opptr.q[0];
+
+	int dr = (opcode >> 12) & 0x7f;
+	int sr = (opcode >> 19) & 0x7f;
+	int md = opcode & 0xf;
+	int ary = (opcode >> 4) & 7;
+	int disp5 = (opcode >> 7) & 0x1f;
+	int trm = (opcode >> 26) & 1;
+	int dir = (opcode >> 25) & 1;
+
+	if (trm == 0)
+	{
+		if ((sr & 0x40) == 0)
+		{
+			describe_reg_read(desc, sr & 0x3f);
+		}
+		else if (sr == 0x58)
+		{
+			// MOV1 #imm12, DR
+		}
+		else
+		{
+			describe_ea(desc, md, sr & 7, ary, disp5);
+			desc.flags |= OPFLAG_READS_MEMORY;
+		}
+
+		if ((dr & 0x40) == 0)
+		{
+			describe_reg_write(desc, dr & 0x3f);
+		}
+		else
+		{
+			describe_ea(desc, md, dr & 7, ary, disp5);
+			desc.flags |= OPFLAG_WRITES_MEMORY;
+		}
+	}
+	else
+	{
+		// external transfer
+		if (dir == 0)
+		{
+			describe_reg_read(desc, dr & 0x3f);
+			desc.flags |= OPFLAG_WRITES_MEMORY;
+		}
+		else
+		{
+			describe_reg_write(desc, dr & 0x3f);
+			desc.flags |= OPFLAG_READS_MEMORY;
+		}
+	}
 }
 
 void mb86235_frontend::describe_double_xfer1(opcode_desc &desc)
 {
-	UINT64 opcode = desc.opptr.q[0];
-	fatalerror("mb86235_frontend: describe_double_xfer1 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+	uint64_t opcode = desc.opptr.q[0];
+
+	fatalerror("mb86235_frontend: describe_double_xfer1 at %08X (%08X%08X)", desc.pc, (uint32_t)(opcode >> 32), (uint32_t)(opcode));
 }
 
 void mb86235_frontend::describe_xfer2(opcode_desc &desc)
 {
-	UINT64 opcode = desc.opptr.q[0];
+	uint64_t opcode = desc.opptr.q[0];
 
 	int op = (opcode >> 39) & 3;
 	int trm = (opcode >> 38) & 1;
@@ -654,27 +762,27 @@ void mb86235_frontend::describe_xfer2(opcode_desc &desc)
 	}
 	else if (op == 2)	// MOV4
 	{
-		fatalerror("mb86235_frontend: describe_xfer2 MOV4 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+		fatalerror("mb86235_frontend: describe_xfer2 MOV4 at %08X (%08X%08X)", desc.pc, (uint32_t)(opcode >> 32), (uint32_t)(opcode));
 	}
 
 }
 
 void mb86235_frontend::describe_double_xfer2(opcode_desc &desc)
 {
-	UINT64 opcode = desc.opptr.q[0];
-	fatalerror("mb86235_frontend: describe_double_xfer2 at %08X (%08X%08X)", desc.pc, (UINT32)(opcode >> 32), (UINT32)(opcode));
+	uint64_t opcode = desc.opptr.q[0];
+	fatalerror("mb86235_frontend: describe_double_xfer2 at %08X (%08X%08X)", desc.pc, (uint32_t)(opcode >> 32), (uint32_t)(opcode));
 }
 
 void mb86235_frontend::describe_xfer3(opcode_desc &desc)
 {
-	UINT64 opcode = desc.opptr.q[0];
+	uint64_t opcode = desc.opptr.q[0];
 
 	int dr = (opcode >> 19) & 0x7f;
 	int disp = (opcode >> 7) & 0xfff;
 	int ary = (opcode >> 4) & 7;
 	int md = opcode & 0xf;
 
-	switch (dr >> 4)
+	switch (dr >> 5)
 	{
 		case 0:
 		case 1:		// reg
@@ -702,11 +810,13 @@ void mb86235_frontend::describe_control(opcode_desc &desc)
 			break;
 		case 0x01:		// REP
 			if (ef1 != 0)	// ARx
-				AR_USED(desc, (ef2 >> 12) & 7);
+				AR_USED(desc, (ef2 >> 13) & 7);
+
+			desc.userflags |= OP_USERFLAG_REPEAT;
 			break;
 		case 0x02:		// SETL
 			if (ef1 != 0)	// ARx
-				AR_USED(desc, (ef2 >> 12) & 7);
+				AR_USED(desc, (ef2 >> 13) & 7);
 			break;
 		case 0x03:		// CLRFI/CLRFO/CLRF
 			break;
